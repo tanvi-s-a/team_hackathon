@@ -1,0 +1,15 @@
+# Python ignore
+**/__pycache__/
+**/*.pyc
+backend/.env
+backend/carbon.db
+
+# Node/React ignore
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+
+# OS files
+.DS_Store
+Thumbs.db
