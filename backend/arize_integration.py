@@ -1,4 +1,14 @@
 import os
+import sys
+
+# Force stdout/stderr to UTF-8 on Windows to avoid UnicodeEncodeErrors when printing emojis
+if sys.platform.startswith("win"):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
 import phoenix as px
 from phoenix.otel import register
 from opentelemetry import trace
