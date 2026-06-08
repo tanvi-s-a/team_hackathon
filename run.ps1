@@ -15,11 +15,11 @@ foreach ($port in $ports) {
 
 # Launch Backend in a separate window
 Write-Host "Launching Backend (FastAPI + Arize Phoenix Agent Tracing)..." -ForegroundColor Cyan
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "$Host.UI.RawUI.WindowTitle = 'Carbon Account API'; `$env:PYTHONIOENCODING='utf-8'; python -m backend.main"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "$Host.UI.RawUI.WindowTitle = 'Carbon Account API'; cd '$PSScriptRoot'; `$env:PYTHONIOENCODING='utf-8'; python -m backend.main"
 
 # Launch Frontend in a separate window
 Write-Host "Launching Frontend (Vite + React Dashboard)..." -ForegroundColor Cyan
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "$Host.UI.RawUI.WindowTitle = 'Carbon Account Frontend'; cd frontend; npm run dev"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "$Host.UI.RawUI.WindowTitle = 'Carbon Account Frontend'; cd '$PSScriptRoot/frontend'; npm run dev"
 
 Write-Host "----------------------------------------------------" -ForegroundColor Green
 Write-Host "Done! The servers are running in separate terminals." -ForegroundColor Green
