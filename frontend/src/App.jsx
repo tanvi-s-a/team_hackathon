@@ -19,7 +19,8 @@ import {
   ShieldCheck,
   ArrowRight,
   Clock,
-  Gauge
+  Gauge,
+  Download
 } from 'lucide-react';
 
 const API_URL = 'http://127.0.0.1:8000';
@@ -296,6 +297,32 @@ function App() {
     }
   };
 
+  const downloadReportPdf = async () => {
+    if (!currentPackages) return;
+    try {
+      showToast('Generating formal carbon comparison PDF report...');
+      const res = await fetch(`${API_URL}/api/generate-report`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(currentPackages)
+      });
+      if (!res.ok) throw new Error('PDF generation failed');
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `carbon_trip_report_${currentPackages.destination.toLowerCase().replace(/\\s+/g, '_')}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      showToast('PDF report downloaded successfully!');
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to generate PDF report.');
+    }
+  };
+
   const confirmBooking = async (txId) => {
     try {
       const res = await fetch(`${API_URL}/api/confirm-booking`, {
@@ -379,7 +406,7 @@ function App() {
       <div className="sidebar">
         <div className="logo-container">
           <Leaf className="logo-icon" size={26} />
-          <span>CarbonAccount</span>
+          <span>Green Route</span>
         </div>
         <ul className="nav-links">
           <li>
@@ -926,8 +953,8 @@ function App() {
             {currentPackages && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                 {/* Comparison Title Card */}
-                <div className="glass-card" style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(21, 28, 44, 0.6) 100%)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
+                <div className="glass-card" style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(21, 28, 44, 0.6) 100%)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: '250px' }}>
                     <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.4rem', fontWeight: 700, color: 'var(--primary)' }}>
                       Travel Packages for {currentPackages.destination} ({currentPackages.days} Days)
                     </h3>
@@ -935,9 +962,42 @@ function App() {
                       Choosing the Eco package saves <strong>{currentPackages.green_choice.co2_savings} kg CO₂</strong>.
                     </p>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Points Reward</div>
-                    <div style={{ color: 'var(--accent)', fontFamily: 'var(--font-heading)', fontSize: '1.8rem', fontWeight: 800 }}>+{currentPackages.green_choice.points_earned} PTS</div>
+                  
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                    <button 
+                      onClick={downloadReportPdf} 
+                      className="package-action-btn primary" 
+                      style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '0.5rem', 
+                        background: 'linear-gradient(135deg, var(--accent) 0%, var(--primary) 100%)', 
+                        color: 'var(--background)',
+                        padding: '0.6rem 1.2rem',
+                        borderRadius: '6px',
+                        border: 'none',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)',
+                        transition: 'transform 0.2s, box-shadow 0.2s'
+                      }}
+                      onMouseOver={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.boxShadow = '0 6px 16px rgba(16, 185, 129, 0.35)';
+                      }}
+                      onMouseOut={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.2)';
+                      }}
+                    >
+                      <Download size={16} />
+                      Download Audit PDF
+                    </button>
+                    
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Points Reward</div>
+                      <div style={{ color: 'var(--accent)', fontFamily: 'var(--font-heading)', fontSize: '1.8rem', fontWeight: 800 }}>+{currentPackages.green_choice.points_earned} PTS</div>
+                    </div>
                   </div>
                 </div>
 

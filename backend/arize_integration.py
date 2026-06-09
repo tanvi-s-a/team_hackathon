@@ -2,13 +2,22 @@ import os
 import sys
 import socket
 
-def is_port_in_use(port: int, host: str = "127.0.0.1") -> bool:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        try:
-            s.bind((host, port))
-            return False
-        except OSError:
-            return True
+def is_port_in_use(port: int) -> bool:
+    # Check IPv4
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("127.0.0.1", port))
+    except OSError:
+        return True
+
+    # Check IPv6
+    try:
+        with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
+            s.bind(("::1", port))
+    except OSError:
+        return True
+
+    return False
 
 # Force stdout/stderr to UTF-8 on Windows to avoid UnicodeEncodeErrors when printing emojis
 if sys.platform.startswith("win"):

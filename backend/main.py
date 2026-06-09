@@ -1,7 +1,7 @@
 import os
 import datetime
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Body
+from fastapi import FastAPI, HTTPException, Body, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Dict, Any, List
@@ -13,6 +13,7 @@ load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 from backend import database
 from backend import agent
 from backend import arize_integration
+from backend import pdf_generator
 
 app = FastAPI(title="Carbon Account API")
 
@@ -136,6 +137,22 @@ def cancel_booking(payload: ConfirmRequest):
         database.update_transaction_status(payload.tx_id, "cancelled")
         return {"status": "cancelled", "message": "Booking cancelled."}
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/generate-report")
+def generate_report(payload: Dict[str, Any] = Body(...)):
+    try:
+        pdf_bytes = pdf_generator.generate_trip_report_pdf(payload)
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename=carbon_trip_report_{payload.get('destination', 'trip')}.pdf"
+            }
+        )
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/trajectory")
