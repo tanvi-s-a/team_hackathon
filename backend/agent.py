@@ -13,6 +13,26 @@ SPAN_KIND_LLM = "LLM"
 SPAN_KIND_TOOL = "TOOL"
 SPAN_KIND_CHAIN = "CHAIN"
 
+UNRELATED_RESPONSE = (
+    "As an AI assistant dedicated to carbon-conscious travel planning and carbon budget management, "
+    "I am only authorized to address inquiries related to these core objectives. Please ask a question related to these topics."
+)
+
+def is_query_related(query: str) -> bool:
+    related_pattern = (
+        r'\b(trip|travel|vacation|package|flight|hotel|stay|destination|booking|book|'
+        r'resort|lodging|room|night|carrier|airline|vehicle|car|rental|drive|road|transit|'
+        r'afford|cost|price|budget|compare|saving|savings|carbon|emissions|points|report|'
+        r'pattern|trend|insight|recommend|spending|analysis|co2|co2e|green|eco|saf|'
+        r'hybrid|prius|tesla|ev|electric|sustainable|sustainability|offset|offsets|'
+        r'reforestation|sequestration|mossy|soil|dollar|dollars|usd|cheap|limit|allowance|'
+        r'hi|hello|hey|greetings|welcome|morning|afternoon|evening|help|can you|who are you|'
+        r'what is this|capabilities|options|features|objective|account|user|profile|usage|'
+        r'emissions|history|spend|spent|transaction|transactions|detail|details|info|information|'
+        r'name|identity|purpose|creator|who made you|about you)\b'
+    )
+    return bool(re.search(related_pattern, query, re.IGNORECASE))
+
 def parse_query_regex(query):
     # Regex to extract destination and duration
     # E.g. "Hawaii on a 3-day trip" or "paris for 5 days"
@@ -473,7 +493,7 @@ def generate_spending_patterns_summary():
         span.set_attribute("emissions.budget_utilization_percent", patterns["budget_used_percent"])
         span.set_attribute("emissions.points_earned", patterns["points_earned"])
 
-        return {"reply": summary_text, "pattern_report": patterns}
+        return {"reply": summary_text, "pattern_report": patterns, "package_summary": None}
 
 
 def generate_generic_agent_response(query: str, history=None, package_context=None) -> dict:
@@ -487,7 +507,170 @@ def generate_generic_agent_response(query: str, history=None, package_context=No
     if package_context:
         reply += " I can also compare the current package against your goals."
 
-    return {"reply": reply}
+    return {"reply": reply, "package_summary": None}
+
+
+def generate_response_with_gemini(query: str, history=None, package_context=None) -> dict | None:
+    tracer = get_tracer()
+    with tracer.start_as_current_span("gemini_agent_responder") as span:
+        span.set_attribute(SPAN_KIND_KEY, SPAN_KIND_LLM)
+        span.set_attribute("llm.model_name", "gemini-2.5-flash")
+        
+        # Load user account summary context dynamically
+        summary = database.get_summary()
+        current_usage = summary.get("current_usage", 0.0)
+        budget_limit = summary.get("budget_limit", 5000.0)
+        points = summary.get("points", 0)
+        budget_status = f"{round((current_usage / budget_limit) * 100, 1)}% used ({current_usage} kg of {budget_limit} kg)"
+        
+        system_prompt = f"""
+You are the Carbon-Conscious AI Travel Agent, an intelligent agent embedded in the "Carbon Account" web application. Your purpose is to help the user manage their personal carbon budget, understand their spending patterns, and plan low-carbon travel options.
+
+ACCOUNT SUMMARY CONTEXT:
+- Annual Carbon Budget Limit: {budget_limit} kg CO2
+- Current User Emissions: {current_usage} kg CO2
+- Available Reward Points: {points} points
+- Carbon Budget Status: {budget_status}
+
+DATASETS (derived from EPA GHG Emission Factors Hub and DEFRA GHG Conversion Factors):
+
+1. FLIGHT EMISSIONS DATASET (distance-based per-passenger CO2e factors with radiative forcing):
+- Short Haul (< 300 miles / ~480 km, e.g., NYC to Boston):
+  * Standard: 0.22 kg CO2e / passenger-mile (approx. 150.0 kg CO2e total, carrier: "Legacy Trans-Continental Airlines")
+  * Green (Sustainable Aviation Fuel - SAF): 0.099 kg CO2e / passenger-mile (55% reduction, approx. 67.5 kg CO2e total, carrier: "GreenJet Airways (SAF)")
+- Medium Haul (300 - 2300 miles / 480 - 3700 km, e.g., NYC to Miami or Hawaii):
+  * Standard: 0.13 kg CO2e / passenger-mile (approx. 450.0 kg CO2e total, carrier: "Legacy Trans-Continental Airlines")
+  * Green (SAF): 0.0585 kg CO2e / passenger-mile (55% reduction, approx. 202.5 kg CO2e total, carrier: "GreenJet Airways (SAF)")
+- Long Haul (> 2300 miles / ~3700 km, e.g., NYC to London or Tokyo):
+  * Standard: 0.16 kg CO2e / passenger-mile (approx. 980.0 kg CO2e total, carrier: "Legacy Trans-Continental Airlines")
+  * Green (SAF): 0.072 kg CO2e / passenger-mile (55% reduction, approx. 441.0 kg CO2e total, carrier: "GreenJet Airways (SAF)")
+
+2. ROAD & TRANSIT DATASET (based on vehicle fuel economy class):
+- Electric Vehicle (EV - Tesla Model 3 Rental):
+  * Tailpipe Emissions: 0.0 kg CO2e / mile
+  * Local Grid Charging Emissions: ~0.04 kg CO2e / mile (approx. 0.0 kg tailpipe emissions, grid charging offset, cost: ~$65 / day, vehicle: "Tesla Model 3")
+- Compact Hybrid (Toyota Prius Rental):
+  * Emissions: 0.11 kg CO2e / mile (approx. 9.5 kg CO2e / day under typical driving, cost: ~$45 / day, vehicle: "Toyota Prius (Hybrid)")
+- Standard Gas Sedan:
+  * Emissions: 0.33 kg CO2e / mile (approx. 18.0 kg CO2e / day under typical driving, cost: ~$35 / day, vehicle: "Standard Gas Sedan")
+- Full-Size Gas SUV:
+  * Emissions: 0.48 kg CO2e / mile (approx. 42.5 kg CO2e / day under typical driving, cost: ~$50 / day, vehicle: "Full-Size Gas SUV")
+
+3. LODGING & STAY DATASET (based on Cornell Hotel Sustainability Benchmarking averages):
+- LEED Gold Certified Eco-Resort (LEED Gold, solar-powered, zero-waste dining, greywater systems):
+  * Emissions: 8.5 kg CO2e / room-night (approx. 12.0 kg CO2e total per night, cost: ~$150 / night, hotel: "EcoNest Certified Retreat")
+- Conventional Premium Hotel (Standard full-service resort with conventional electricity/HVAC):
+  * Emissions: 47.6 kg CO2e / room-night (approx. 45.0 kg CO2e total per night, cost: ~$130 / night, hotel: "Grand Plaza Palms Resort")
+
+4. CARBON OFFSETS & MITIGATION:
+- Mossy Earth Reforestation:
+  * Impact: -150.0 kg CO2e offset per unit purchased (cost: ~$25 / unit)
+- Soil Carbon Sequestration:
+  * Impact: -80.0 kg CO2e offset per unit purchased (cost: ~$15 / unit)
+
+CONVERSATIONAL RULES:
+- Keep responses concise, helpful, and conversational.
+- Incorporate data from the datasets whenever discussing travel planning, flights, cars, stays, or carbon savings.
+- If the user asks a general question related to your objective, reply conversationally.
+- If the user asks about carbon patterns, spending, or budget, refer to their ACCOUNT SUMMARY CONTEXT.
+- UNRELATED QUESTIONS: If the user asks a question that is unrelated to your core objective (which is to help manage carbon budgets, analyze emissions, and plan low-carbon travel), you must refuse to answer. You must respond with this exact reply: "As an AI assistant dedicated to carbon-conscious travel planning and carbon budget management, I am only authorized to address inquiries related to these core objectives. Please ask a question related to these topics." Set "package_summary" to null.
+
+OUTPUT FORMAT SPECIFICATION:
+You must ALWAYS respond with a JSON object. The JSON object must contain the following keys:
+1. "reply": A string containing your conversational response to the user.
+2. "package_summary": (Include ONLY if the user is asking to plan a trip, search for travel, or book a vacation. Otherwise, set to null.)
+   The package_summary must follow this structure:
+   {{
+       "destination": "Name of destination",
+       "days": number_of_days,
+       "green_choice": {{
+           "flight": {{"carrier": "...", "co2_kg": ..., "price_usd": ..., "details": "..."}},
+           "stay": {{"hotel": "...", "co2_kg": ..., "price_usd": ..., "details": "..."}},
+           "transit": {{"vehicle": "...", "co2_kg": ..., "price_usd": ..., "details": "..."}},
+           "total_co2": ...,
+           "total_price_usd": ...,
+           "points_earned": ...,
+           "summary": "...",
+           "co2_savings": ...
+       }},
+       "standard_choice": {{
+           "flight": {{"carrier": "...", "co2_kg": ..., "price_usd": ..., "details": "..."}},
+           "stay": {{"hotel": "...", "co2_kg": ..., "price_usd": ..., "details": "..."}},
+           "transit": {{"vehicle": "...", "co2_kg": ..., "price_usd": ..., "details": "..."}},
+           "total_co2": ...,
+           "total_price_usd": ...
+       }}
+   }}
+
+CALCULATION RULES FOR TRAVEL PACKAGES:
+- co2_savings = standard_choice.total_co2 - green_choice.total_co2
+- points_earned = round(co2_savings * 0.2) + 50 (50 points flat bonus for choosing green)
+"""
+        
+        # Build history context
+        history_str = ""
+        if history:
+            history_str = "\nCONVERSATION HISTORY:\n"
+            for msg in history:
+                sender = "User" if msg.get("sender") == "user" else "Agent"
+                history_str += f"{sender}: {msg.get('text')}\n"
+                
+        # Build current package context
+        context_str = ""
+        if package_context:
+            context_str = f"\nCURRENT ACTIVE TRAVEL PACKAGE CONTEXT:\n{json.dumps(package_context, indent=2)}\n"
+            
+        user_prompt = f"""
+{context_str}
+{history_str}
+
+USER MESSAGE: "{query}"
+
+Construct your JSON response now.
+"""
+        span.set_attribute("input.value", user_prompt)
+        
+        try:
+            from google import genai
+            from google.genai import types
+            
+            client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=[system_prompt, "\n\n", user_prompt],
+                config=types.GenerateContentConfig(
+                    temperature=0.2,
+                    max_output_tokens=2000,
+                    response_mime_type="application/json",
+                ),
+            )
+            
+            result_content = response.text
+            span.set_attribute("output.value", result_content)
+            
+            try:
+                data = json.loads(result_content)
+                # If package_summary is present, save it to database
+                if data.get("package_summary"):
+                    pkg = data["package_summary"]
+                    green = pkg.get("green_choice", {})
+                    database.add_package(
+                        destination=pkg.get("destination", "Unknown"),
+                        duration_days=pkg.get("days", 3),
+                        flight_co2=green.get("flight", {}).get("co2_kg", 0.0),
+                        car_co2=green.get("transit", {}).get("co2_kg", 0.0),
+                        stay_co2=green.get("stay", {}).get("co2_kg", 0.0),
+                        total_co2=green.get("total_co2", 0.0),
+                        price_usd=green.get("total_price_usd", 0.0),
+                        details=pkg
+                    )
+                return data
+            except Exception as e:
+                print(f"Error parsing Gemini JSON response: {e}")
+                return None
+        except Exception as e:
+            print(f"Gemini agent responder error: {e}")
+            return None
 
 
 def execute_agent_loop(query: str, history=None, package_context=None):
@@ -499,49 +682,55 @@ def execute_agent_loop(query: str, history=None, package_context=None):
         if history:
             span.set_attribute("conversation.length", len(history))
 
+        # Guardrail: Check if the query is unrelated to the agent's objective
+        if not is_query_related(query):
+            reply = UNRELATED_RESPONSE
+            span.set_attribute("output.value", reply)
+            return {"reply": reply, "package_summary": None}
+
+        # 1. Attempt to use Gemini agent for a dynamic response (covers all queries)
+        gemini_key = os.getenv("GEMINI_API_KEY")
+        if gemini_key and len(gemini_key.strip()) > 10:
+            response = generate_response_with_gemini(query, history, package_context)
+            if response:
+                span.set_attribute("output.value", response.get("reply", ""))
+                return response
+
+        # 2. Fallback logic: if Gemini fails or key is missing, use deterministic/regex handlers
+        print("--> Gemini agent responder unavailable. Using local fallback engine.")
+        
         # If we already have a package and the user is asking a follow-up question, answer from that package context.
         if package_context and is_followup_question(query):
             response = generate_followup_response(query, package_context, history)
             span.set_attribute("output.value", response["reply"])
             return response
 
-            # If the user is requesting carbon spending patterns, provide a quick summary.
+        # If the user is requesting carbon spending patterns, provide a quick summary.
         if re.search(r'\b(pattern|report|insight|trend|analysis|spending)\b', query, re.IGNORECASE):
             response = generate_spending_patterns_summary()
             span.set_attribute("output.value", response["reply"])
             return response
 
-        # Otherwise, attempt to create a travel package if the query looks like a trip request.
-        if not is_travel_request(query):
-            response = generate_generic_agent_response(query, history, package_context)
-            span.set_attribute("output.value", response["reply"])
-            return response
+        # If it looks like a trip request, generate simulated packages
+        if is_travel_request(query):
+            destination, days = parse_query_regex(query)
+            span.set_attribute("agent.parsed_destination", destination)
+            span.set_attribute("agent.parsed_days", days)
 
-        destination, days = parse_query_regex(query)
-        span.set_attribute("agent.parsed_destination", destination)
-        span.set_attribute("agent.parsed_days", days)
-
-        flights = run_flight_lookup(destination)
-        stays = run_stay_lookup(destination, days)
-        transits = run_transit_lookup(destination, days)
-
-        gemini_key = os.getenv("GEMINI_API_KEY")
-        anthropic_key = os.getenv("ANTHROPIC_API_KEY")
-
-        # Try generating a package using any LLM available.
-        package = None
-        if gemini_key and len(gemini_key.strip()) > 10:
-            package = generate_packages_with_gemini(query, destination, days, flights, stays, transits)
-        if not package and anthropic_key and len(anthropic_key.strip()) > 10:
-            package = generate_packages_with_claude(query, destination, days, flights, stays, transits)
-        if not package and gemini_key and len(gemini_key.strip()) > 10:
-            package = generate_packages_real_llm(query, destination, days, flights, stays, transits)
-        if not package:
+            flights = run_flight_lookup(destination)
+            stays = run_stay_lookup(destination, days)
+            transits = run_transit_lookup(destination, days)
+            
             package = generate_packages_simulated(destination, days, flights, stays, transits)
+            
+            reply = (
+                f"I found two travel packages for {package['destination']}. The eco-friendly option saves "
+                f"{package['green_choice']['co2_savings']} kg CO2 and earns {package['green_choice']['points_earned']} points. (Fallback Mode)"
+            )
+            span.set_attribute("output.value", reply)
+            return {"reply": reply, "package_summary": package}
 
-        reply = (
-            f"I found two travel packages for {package['destination']}. The eco-friendly option saves "
-            f"{package['green_choice']['co2_savings']} kg CO2 and earns {package['green_choice']['points_earned']} points."
-        )
-        span.set_attribute("output.value", reply)
-        return {"reply": reply, "package_summary": package}
+        # Otherwise, attempt a generic fallback response
+        response = generate_generic_agent_response(query, history, package_context)
+        span.set_attribute("output.value", response["reply"])
+        return response
