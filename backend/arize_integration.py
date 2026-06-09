@@ -1,5 +1,14 @@
 import os
 import sys
+import socket
+
+def is_port_in_use(port: int, host: str = "127.0.0.1") -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        try:
+            s.bind((host, port))
+            return False
+        except OSError:
+            return True
 
 # Force stdout/stderr to UTF-8 on Windows to avoid UnicodeEncodeErrors when printing emojis
 if sys.platform.startswith("win"):
@@ -34,15 +43,20 @@ def init_arize():
 
     # Start Phoenix locally on port 6006 (or read from environment)
     port = int(os.getenv("PHOENIX_PORT", 6006))
-    try:
-        session = px.launch_app(port=port)
-        print(f"--> Arize Phoenix UI is available at: {session.url}")
-    except Exception as e:
-        print(f"--> Note: Phoenix app might already be running: {e}")
+    grpc_port = int(os.getenv("PHOENIX_GRPC_PORT", 4317))
+    
+    if is_port_in_use(port) or is_port_in_use(grpc_port):
+        print(f"--> Phoenix port {port} or gRPC port {grpc_port} is already in use. Skipping px.launch_app to avoid port binding crash.")
+    else:
+        try:
+            session = px.launch_app(port=port)
+            print(f"--> Arize Phoenix UI is available at: {session.url}")
+        except Exception as e:
+            print(f"--> Note: Phoenix app might already be running: {e}")
     
     # Register the tracer provider to export OTel spans to our local Phoenix collector
     # Default local collector endpoint is http://localhost:6006/v1/traces
-    collector_endpoint = f"http://localhost:{port}/v1/traces"
+    collector_endpoint = f"http://127.0.0.1:{port}/v1/traces"
     
     try:
         tracer_provider = register(
@@ -55,17 +69,16 @@ def init_arize():
         tracer = trace.get_tracer("carbon-agent")
         return tracer
 
-    # Instrument OpenAI if available
+    # Instrument Google GenAI if available
     try:
-        from openinference.instrumentation.openai import OpenAIInstrumentor
-        # This will auto-instrument any openai client instances in the python session
-        if OpenAIInstrumentor().is_instrumented_by(tracer_provider):
-            print("--> OpenAI already instrumented")
+        from openinference.instrumentation.google_genai import GoogleGenAIInstrumentor
+        if GoogleGenAIInstrumentor().is_instrumented_by(tracer_provider):
+            print("--> Google GenAI already instrumented")
         else:
-            OpenAIInstrumentor().instrument(tracer_provider=tracer_provider)
-            print("--> Auto-instrumented OpenAI with OpenInference")
+            GoogleGenAIInstrumentor().instrument(tracer_provider=tracer_provider)
+            print("--> Auto-instrumented Google GenAI with OpenInference")
     except Exception as e:
-        print(f"--> Could not auto-instrument OpenAI (this is expected if package is not fully loaded): {e}")
+        print(f"--> Could not auto-instrument Google GenAI: {e}")
 
     tracer = trace.get_tracer("carbon-agent-tracer")
     return tracer

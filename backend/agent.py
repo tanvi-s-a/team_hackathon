@@ -120,7 +120,7 @@ def generate_packages_with_gemini(query, destination, days, flights, stays, tran
     
     with tracer.start_as_current_span("gemini_package_generator") as span:
         span.set_attribute(SPAN_KIND_KEY, SPAN_KIND_LLM)
-        span.set_attribute("llm.model_name", "gemini-1.5-pro")
+        span.set_attribute("llm.model_name", "gemini-2.5-flash")
         
         system_prompt = (
             "You are a Carbon-Conscious AI Travel Planner. You take trip options (flights, stays, car rentals) "
@@ -174,16 +174,18 @@ def generate_packages_with_gemini(query, destination, days, flights, stays, tran
         span.set_attribute("input.value", user_prompt)
         
         try:
-            import google.generativeai as genai
-            genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-            model = genai.GenerativeModel("gemini-1.5-pro")
+            from google import genai
+            from google.genai import types
             
-            response = model.generate_content(
-                [system_prompt, "\n\n", user_prompt],
-                generation_config=genai.types.GenerationConfig(
+            client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=[system_prompt, "\n\n", user_prompt],
+                config=types.GenerateContentConfig(
                     temperature=0.2,
                     max_output_tokens=2000,
-                )
+                    response_mime_type="application/json",
+                ),
             )
             
             result_content = response.text
@@ -282,87 +284,8 @@ def generate_packages_with_claude(query, destination, days, flights, stays, tran
             return None
 
 def generate_packages_real_llm(query, destination, days, flights, stays, transits):
-    tracer = get_tracer()
-    
-    with tracer.start_as_current_span("openai_package_generator") as span:
-        span.set_attribute(SPAN_KIND_KEY, SPAN_KIND_LLM)
-        span.set_attribute("llm.model_name", "gpt-4o")
-        
-        # System prompt and instruction
-        system_prompt = (
-            "You are a Carbon-Conscious AI Travel Planner. You take trip options (flights, stays, car rentals) "
-            "and create a green eco-efficient package and a standard baseline comparison package. "
-            "Output your response strictly as a JSON object containing the packages."
-        )
-        
-        user_prompt = f"""
-        User wants a {days}-day trip to {destination}. Query: "{query}"
-        
-        Available Flight options:
-        {json.dumps(flights, indent=2)}
-        
-        Available Stay options:
-        {json.dumps(stays, indent=2)}
-        
-        Available Transit options:
-        {json.dumps(transits, indent=2)}
-        
-        Please synthesize this into two packages:
-        1. "green_choice": Uses eco flights, eco hotels, and eco vehicles. Calculate the total CO2, total price, and write a summary justifying why it's carbon efficient and how many points the user earns (usually 20 points per 100kg of CO2 saved compared to standard package).
-        2. "standard_choice": Uses standard flights, standard hotels, and standard vehicles.
-        
-        Calculate CO2 savings as: Standard Total CO2 - Eco Total CO2.
-        Points earned should be: Math.round(savings_kg * 0.2) + 50 (bonus for choosing green).
-        
-        Output format should be EXACTLY this JSON:
-        {{
-            "destination": "{destination}",
-            "days": {days},
-            "green_choice": {{
-                "flight": {{"carrier": "...", "co2_kg": ..., "price_usd": ..., "details": "..."}},
-                "stay": {{"hotel": "...", "co2_kg": ..., "price_usd": ..., "details": "..."}},
-                "transit": {{"vehicle": "...", "co2_kg": ..., "price_usd": ..., "details": "..."}},
-                "total_co2": ...,
-                "total_price_usd": ...,
-                "points_earned": ...,
-                "summary": "...",
-                "co2_savings": ...
-            }},
-            "standard_choice": {{
-                "flight": {{"carrier": "...", "co2_kg": ..., "price_usd": ..., "details": "..."}},
-                "stay": {{"hotel": "...", "co2_kg": ..., "price_usd": ..., "details": "..."}},
-                "transit": {{"vehicle": "...", "co2_kg": ..., "price_usd": ..., "details": "..."}},
-                "total_co2": ...,
-                "total_price_usd": ...
-            }}
-        }}
-        """
-        
-        span.set_attribute("input.value", user_prompt)
-        
-        # Call OpenAI if key is present
-        from openai import OpenAI
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        
-        response = client.chat.completions.create(
-            model="gpt-4o",
-            response_format={"type": "json_object"},
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ],
-            temperature=0.2
-        )
-        
-        result_content = response.choices[0].message.content
-        span.set_attribute("output.value", result_content)
-        
-        # Try to parse the result as JSON
-        try:
-            return json.loads(result_content)
-        except Exception as e:
-            print(f"Error parsing LLM response: {e}")
-            return None
+    # Switched from OpenAI to Google AI (Gemini 2.5)
+    return generate_packages_with_gemini(query, destination, days, flights, stays, transits)
 
 def generate_packages_simulated(destination, days, flights, stays, transits):
     tracer = get_tracer()
@@ -604,7 +527,6 @@ def execute_agent_loop(query: str, history=None, package_context=None):
 
         gemini_key = os.getenv("GEMINI_API_KEY")
         anthropic_key = os.getenv("ANTHROPIC_API_KEY")
-        openai_key = os.getenv("OPENAI_API_KEY")
 
         # Try generating a package using any LLM available.
         package = None
@@ -612,7 +534,7 @@ def execute_agent_loop(query: str, history=None, package_context=None):
             package = generate_packages_with_gemini(query, destination, days, flights, stays, transits)
         if not package and anthropic_key and len(anthropic_key.strip()) > 10:
             package = generate_packages_with_claude(query, destination, days, flights, stays, transits)
-        if not package and openai_key and len(openai_key.strip()) > 10:
+        if not package and gemini_key and len(gemini_key.strip()) > 10:
             package = generate_packages_real_llm(query, destination, days, flights, stays, transits)
         if not package:
             package = generate_packages_simulated(destination, days, flights, stays, transits)

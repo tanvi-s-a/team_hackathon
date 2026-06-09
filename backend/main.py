@@ -35,7 +35,7 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     query: str
     history: List[ChatMessage] = []
-    package_context: Dict[str, Any] = None
+    package_context: Dict[str, Any] | None = None
 
 class BookRequest(BaseModel):
     destination: str
@@ -288,6 +288,8 @@ def get_carbon_patterns():
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+if __name__ == "__main__":
+    import uvicorn
     # Dynamically select module path depending on if run from root or backend directory
     module_path = "backend.main:app" if os.path.exists("backend") else "main:app"
     uvicorn.run(module_path, host="127.0.0.1", port=8000, reload=True)
