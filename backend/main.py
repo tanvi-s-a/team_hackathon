@@ -64,8 +64,15 @@ class PDFRequest(BaseModel):
     std_total_price: float | None = None
     co2_savings: float | None = None
     points_earned: int | None = None
+    bal_flight: Dict[str, Any] | None = None
+    bal_stay: Dict[str, Any] | None = None
+    bal_transit: Dict[str, Any] | None = None
+    bal_total_co2: float | None = None
+    bal_total_price: float | None = None
+    bal_co2_savings: float | None = None
+    bal_points_earned: int | None = None
 
-def create_comparison_chart(green_co2, std_co2, green_price, std_price):
+def create_comparison_chart(green_co2, std_co2, green_price, std_price, bal_co2=None, bal_price=None):
     from reportlab.graphics.shapes import Drawing, Rect, String
     from reportlab.lib import colors
     
@@ -77,38 +84,52 @@ def create_comparison_chart(green_co2, std_co2, green_price, std_price):
     d.add(String(20, 175, "Carbon & Cost Comparison Chart", fontSize=14, fontName="Helvetica-Bold", fillColor=colors.white))
     
     # Y Axis scale and labels
-    max_co2 = max(green_co2 or 0, std_co2 or 0, 10)
-    max_price = max(green_price or 0, std_price or 0, 10)
+    max_co2 = max(green_co2 or 0, bal_co2 or 0, std_co2 or 0, 10)
+    max_price = max(green_price or 0, bal_price or 0, std_price or 0, 10)
     
     # Left Bar: CO2 emissions
     d.add(String(20, 140, "Emissions (kg CO₂)", fontSize=10, fontName="Helvetica-Bold", fillColor=colors.HexColor('#9ca3af')))
     
-    # Standard CO2 bar
-    std_co2_height = ((std_co2 or 0) / max_co2) * 80
-    d.add(Rect(20, 40, 50, std_co2_height, fillColor=colors.HexColor('#ef4444'), strokeColor=None))
-    d.add(String(20, 40 + std_co2_height + 5, f"{std_co2 or 0} kg", fontSize=9, fontName="Helvetica-Bold", fillColor=colors.HexColor('#ef4444')))
-    d.add(String(20, 25, "Standard", fontSize=8, fontName="Helvetica", fillColor=colors.HexColor('#9ca3af')))
-    
-    # Green CO2 bar
+    # Eco Premium CO2 bar (Green)
     green_co2_height = ((green_co2 or 0) / max_co2) * 80
-    d.add(Rect(90, 40, 50, green_co2_height, fillColor=colors.HexColor('#10b981'), strokeColor=None))
-    d.add(String(90, 40 + green_co2_height + 5, f"{green_co2 or 0} kg", fontSize=9, fontName="Helvetica-Bold", fillColor=colors.HexColor('#10b981')))
-    d.add(String(90, 25, "Eco Choice", fontSize=8, fontName="Helvetica", fillColor=colors.HexColor('#10b981')))
+    d.add(Rect(20, 40, 32, green_co2_height, fillColor=colors.HexColor('#10b981'), strokeColor=None))
+    d.add(String(20, 40 + green_co2_height + 5, f"{green_co2 or 0}", fontSize=8, fontName="Helvetica-Bold", fillColor=colors.HexColor('#10b981')))
+    d.add(String(20, 25, "Eco Prem", fontSize=8, fontName="Helvetica", fillColor=colors.HexColor('#9ca3af')))
+    
+    # Eco Balanced CO2 bar (Blue)
+    bal_co2_val = bal_co2 if bal_co2 is not None else round((green_co2 + std_co2) / 2, 1) if (green_co2 and std_co2) else 0
+    bal_co2_height = (bal_co2_val / max_co2) * 80
+    d.add(Rect(60, 40, 32, bal_co2_height, fillColor=colors.HexColor('#3b82f6'), strokeColor=None))
+    d.add(String(60, 40 + bal_co2_height + 5, f"{bal_co2_val}", fontSize=8, fontName="Helvetica-Bold", fillColor=colors.HexColor('#3b82f6')))
+    d.add(String(60, 25, "Eco Bal", fontSize=8, fontName="Helvetica", fillColor=colors.HexColor('#9ca3af')))
+    
+    # Standard CO2 bar (Red)
+    std_co2_height = ((std_co2 or 0) / max_co2) * 80
+    d.add(Rect(100, 40, 32, std_co2_height, fillColor=colors.HexColor('#ef4444'), strokeColor=None))
+    d.add(String(100, 40 + std_co2_height + 5, f"{std_co2 or 0}", fontSize=8, fontName="Helvetica-Bold", fillColor=colors.HexColor('#ef4444')))
+    d.add(String(100, 25, "Standard", fontSize=8, fontName="Helvetica", fillColor=colors.HexColor('#9ca3af')))
     
     # Right Bar: Cost
-    d.add(String(230, 140, "Cost (USD)", fontSize=10, fontName="Helvetica-Bold", fillColor=colors.HexColor('#9ca3af')))
+    d.add(String(220, 140, "Cost (USD)", fontSize=10, fontName="Helvetica-Bold", fillColor=colors.HexColor('#9ca3af')))
     
-    # Standard Price bar
-    std_price_height = ((std_price or 0) / max_price) * 80
-    d.add(Rect(230, 40, 50, std_price_height, fillColor=colors.HexColor('#3b82f6'), strokeColor=None))
-    d.add(String(230, 40 + std_price_height + 5, f"${std_price or 0}", fontSize=9, fontName="Helvetica-Bold", fillColor=colors.HexColor('#3b82f6')))
-    d.add(String(230, 25, "Standard", fontSize=8, fontName="Helvetica", fillColor=colors.HexColor('#9ca3af')))
-    
-    # Green Price bar
+    # Eco Premium Price bar (Green)
     green_price_height = ((green_price or 0) / max_price) * 80
-    d.add(Rect(300, 40, 50, green_price_height, fillColor=colors.HexColor('#fbbf24'), strokeColor=None))
-    d.add(String(300, 40 + green_price_height + 5, f"${green_price or 0}", fontSize=9, fontName="Helvetica-Bold", fillColor=colors.HexColor('#fbbf24')))
-    d.add(String(300, 25, "Eco Choice", fontSize=8, fontName="Helvetica", fillColor=colors.HexColor('#fbbf24')))
+    d.add(Rect(220, 40, 32, green_price_height, fillColor=colors.HexColor('#10b981'), strokeColor=None))
+    d.add(String(220, 40 + green_price_height + 5, f"${int(green_price or 0)}", fontSize=8, fontName="Helvetica-Bold", fillColor=colors.HexColor('#10b981')))
+    d.add(String(220, 25, "Eco Prem", fontSize=8, fontName="Helvetica", fillColor=colors.HexColor('#9ca3af')))
+    
+    # Eco Balanced Price bar (Blue)
+    bal_price_val = bal_price if bal_price is not None else round((green_price + std_price) / 2, 2) if (green_price and std_price) else 0
+    bal_price_height = (bal_price_val / max_price) * 80
+    d.add(Rect(260, 40, 32, bal_price_height, fillColor=colors.HexColor('#3b82f6'), strokeColor=None))
+    d.add(String(260, 40 + bal_price_height + 5, f"${int(bal_price_val)}", fontSize=8, fontName="Helvetica-Bold", fillColor=colors.HexColor('#3b82f6')))
+    d.add(String(260, 25, "Eco Bal", fontSize=8, fontName="Helvetica", fillColor=colors.HexColor('#9ca3af')))
+    
+    # Standard Price bar (Red)
+    std_price_height = ((std_price or 0) / max_price) * 80
+    d.add(Rect(300, 40, 32, std_price_height, fillColor=colors.HexColor('#ef4444'), strokeColor=None))
+    d.add(String(300, 40 + std_price_height + 5, f"${int(std_price or 0)}", fontSize=8, fontName="Helvetica-Bold", fillColor=colors.HexColor('#ef4444')))
+    d.add(String(300, 25, "Standard", fontSize=8, fontName="Helvetica", fillColor=colors.HexColor('#9ca3af')))
     
     return d
 
@@ -230,50 +251,110 @@ def generate_pdf_report(data: Dict[str, Any]) -> bytes:
         std_flight = data.get("std_flight") or {}
         std_stay = data.get("std_stay") or {}
         std_transit = data.get("std_transit") or {}
+
+        bal_flight = data.get("bal_flight") or {}
+        bal_stay = data.get("bal_stay") or {}
+        bal_transit = data.get("bal_transit") or {}
         
+        flight_green_text = f"<b>{green_flight.get('carrier', 'N/A')}</b><br/>{green_flight.get('details', '')}<br/>Price: ${green_flight.get('price_usd', 0):.2f} | CO₂: {green_flight.get('co2_kg', 0)} kg"
+        flight_bal_text = f"<b>{bal_flight.get('carrier', 'N/A')}</b><br/>{bal_flight.get('details', '')}<br/>Price: ${bal_flight.get('price_usd', 0):.2f} | CO₂: {bal_flight.get('co2_kg', 0)} kg"
+        flight_std_text = f"<b>{std_flight.get('carrier', 'N/A')}</b><br/>{std_flight.get('details', '')}<br/>Price: ${std_flight.get('price_usd', 0):.2f} | CO₂: {std_flight.get('co2_kg', 0)} kg"
+
+        stay_green_text = f"<b>{green_stay.get('hotel', 'N/A')}</b><br/>{green_stay.get('details', '')}<br/>Price: ${green_stay.get('price_usd', 0):.2f} | CO₂: {green_stay.get('co2_kg', 0)} kg"
+        stay_bal_text = f"<b>{bal_stay.get('hotel', 'N/A')}</b><br/>{bal_stay.get('details', '')}<br/>Price: ${bal_stay.get('price_usd', 0):.2f} | CO₂: {bal_stay.get('co2_kg', 0)} kg"
+        stay_std_text = f"<b>{std_stay.get('hotel', 'N/A')}</b><br/>{std_stay.get('details', '')}<br/>Price: ${std_stay.get('price_usd', 0):.2f} | CO₂: {std_stay.get('co2_kg', 0)} kg"
+
+        transit_green_text = f"<b>{green_transit.get('vehicle', 'N/A')}</b><br/>{green_transit.get('details', '')}<br/>Price: ${green_transit.get('price_usd', 0):.2f} | CO₂: {green_transit.get('co2_kg', 0)} kg"
+        transit_bal_text = f"<b>{bal_transit.get('vehicle', 'N/A')}</b><br/>{bal_transit.get('details', '')}<br/>Price: ${bal_transit.get('price_usd', 0):.2f} | CO₂: {bal_transit.get('co2_kg', 0)} kg"
+        transit_std_text = f"<b>{std_transit.get('vehicle', 'N/A')}</b><br/>{std_transit.get('details', '')}<br/>Price: ${std_transit.get('price_usd', 0):.2f} | CO₂: {std_transit.get('co2_kg', 0)} kg"
+
+        total_green_text = f"Cost: ${data.get('green_total_price', 0):.2f}<br/>CO₂: {data.get('green_total_co2', 0)} kg<br/>Savings: {data.get('co2_savings', 0)} kg<br/>Points: +{data.get('points_earned', 0)} PTS"
+        total_bal_text = f"Cost: ${data.get('bal_total_price', 0):.2f}<br/>CO₂: {data.get('bal_total_co2', 0)} kg<br/>Savings: {data.get('bal_co2_savings', 0)} kg<br/>Points: +{data.get('bal_points_earned', 0)} PTS"
+        total_std_text = f"Cost: ${data.get('std_total_price', 0):.2f}<br/>CO₂: {data.get('std_total_co2', 0)} kg"
+
+        table_cell_style_white = ParagraphStyle(
+            'TableCellWhite',
+            parent=table_cell_style,
+            textColor=colors.white
+        )
         table_data = [
-            [Paragraph("Service Category", header_cell_style), Paragraph("Standard Itinerary", header_cell_style), Paragraph("Eco Itinerary", header_cell_style), Paragraph("CO₂ Standard", header_cell_style), Paragraph("CO₂ Eco", header_cell_style), Paragraph("Savings", header_cell_style)],
-            [Paragraph("Flight", table_cell_bold), Paragraph(std_flight.get("carrier", "N/A"), table_cell_style), Paragraph(green_flight.get("carrier", "N/A"), table_cell_style), Paragraph(f"{std_flight.get('co2_kg', 0)} kg", table_cell_style), Paragraph(f"{green_flight.get('co2_kg', 0)} kg", table_cell_style), Paragraph(f"{round(float(std_flight.get('co2_kg', 0)) - float(green_flight.get('co2_kg', 0)), 1)} kg", table_cell_bold)],
-            [Paragraph("Lodging", table_cell_bold), Paragraph(std_stay.get("hotel", "N/A"), table_cell_style), Paragraph(green_stay.get("hotel", "N/A"), table_cell_style), Paragraph(f"{std_stay.get('co2_kg', 0)} kg", table_cell_style), Paragraph(f"{green_stay.get('co2_kg', 0)} kg", table_cell_style), Paragraph(f"{round(float(std_stay.get('co2_kg', 0)) - float(green_stay.get('co2_kg', 0)), 1)} kg", table_cell_bold)],
-            [Paragraph("Local Transit", table_cell_bold), Paragraph(std_transit.get("vehicle", "N/A"), table_cell_style), Paragraph(green_transit.get("vehicle", "N/A"), table_cell_style), Paragraph(f"{std_transit.get('co2_kg', 0)} kg", table_cell_style), Paragraph(f"{green_transit.get('co2_kg', 0)} kg", table_cell_style), Paragraph(f"{round(float(std_transit.get('co2_kg', 0)) - float(green_transit.get('co2_kg', 0)), 1)} kg", table_cell_bold)],
-            [Paragraph("Total Itinerary", header_cell_style), Paragraph(f"${data.get('std_total_price', 0):.2f}", header_cell_style), Paragraph(f"${data.get('green_total_price', 0):.2f}", header_cell_style), Paragraph(f"{data.get('std_total_co2', 0)} kg", header_cell_style), Paragraph(f"{data.get('green_total_co2', 0)} kg", header_cell_style), Paragraph(f"{data.get('co2_savings', 0)} kg", header_cell_style)]
+            [
+                Paragraph("Service Category", header_cell_style),
+                Paragraph("Eco Premium Itinerary (Most Eco)", header_cell_style),
+                Paragraph("Eco Balanced Itinerary", header_cell_style),
+                Paragraph("Standard Baseline (Least Eco)", header_cell_style)
+            ],
+            [
+                Paragraph("Flight", table_cell_bold),
+                Paragraph(flight_green_text, table_cell_style),
+                Paragraph(flight_bal_text, table_cell_style),
+                Paragraph(flight_std_text, table_cell_style)
+            ],
+            [
+                Paragraph("Lodging", table_cell_bold),
+                Paragraph(stay_green_text, table_cell_style),
+                Paragraph(stay_bal_text, table_cell_style),
+                Paragraph(stay_std_text, table_cell_style)
+            ],
+            [
+                Paragraph("Local Transit", table_cell_bold),
+                Paragraph(transit_green_text, table_cell_style),
+                Paragraph(transit_bal_text, table_cell_style),
+                Paragraph(transit_std_text, table_cell_style)
+            ],
+            [
+                Paragraph("Total Itinerary", header_cell_style),
+                Paragraph(total_green_text, table_cell_style_white),
+                Paragraph(total_bal_text, table_cell_style_white),
+                Paragraph(total_std_text, table_cell_style_white)
+            ]
         ]
         
-        t = Table(table_data, colWidths=[1.1*inch, 1.4*inch, 1.4*inch, 1.0*inch, 1.0*inch, 0.8*inch])
+        t = Table(table_data, colWidths=[1.2*inch, 2.1*inch, 2.1*inch, 2.1*inch])
         t.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,0), BG_DARK),
             ('ALIGN', (0,0), (-1,-1), 'LEFT'),
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
             ('GRID', (0,0), (-1,-1), 0.5, BORDER_COLOR),
             ('ROWBACKGROUNDS', (0,1), (-1,-2), [CARD_BG, colors.HexColor('#1f2937')]),
-            ('BACKGROUND', (0,-1), (-1,-1), PRIMARY_COLOR),
-            ('TOPPADDING', (0,-1), (-1,-1), 6),
-            ('BOTTOMPADDING', (0,-1), (-1,-1), 6),
+            ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#111827')),
+            ('BACKGROUND', (1,-1), (1,-1), colors.HexColor('#064e3b')),
+            ('BACKGROUND', (2,-1), (2,-1), colors.HexColor('#1e3a8a')),
+            ('BACKGROUND', (3,-1), (3,-1), colors.HexColor('#7f1d1d')),
+            ('TOPPADDING', (0,0), (-1,-1), 6),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+            ('LEFTPADDING', (0,0), (-1,-1), 6),
+            ('RIGHTPADDING', (0,0), (-1,-1), 6),
         ]))
         
         story.append(t)
         story.append(Spacer(1, 10))
         
-        savings = data.get('co2_savings', 0)
+        savings = data.get('co2_savings', 0) or 0
+        bal_savings = data.get('bal_co2_savings', 0) or 0
         std_co2 = data.get('std_total_co2', 1) or 1
-        points = data.get('points_earned', 0)
+        points = data.get('points_earned', 0) or 0
+        bal_points = data.get('bal_points_earned', 0) or 0
         
         highlight_text = (
             f"🌱 <strong>Sustainable Impact Details:</strong> Choosing the <strong>Eco Premium Itinerary</strong> "
-            f"saves a total of <strong>{savings} kg CO₂</strong>, reducing emissions by "
-            f"<strong>{round((savings / std_co2) * 100, 1)}%</strong> "
-            f"compared to standard travel. Booking the Green Choice awards you <strong>+{points} Green Points</strong> "
-            f"to offset carbon and secure loyalty benefits."
+            f"saves a total of <strong>{savings} kg CO₂</strong> ({round((savings / std_co2) * 100, 1)}% reduction) "
+            f"and awards you <strong>+{points} Green Points</strong>. "
+            f"Alternatively, the <strong>Eco Balanced Itinerary</strong> saves "
+            f"<strong>{bal_savings} kg CO₂</strong> ({round((bal_savings / std_co2) * 100, 1)}% reduction) "
+            f"and awards you <strong>+{bal_points} Green Points</strong>."
         )
         story.append(Paragraph(highlight_text, body_style))
         story.append(Spacer(1, 10))
         
         # Chart Section
         chart_drawing = create_comparison_chart(
-            data.get('green_total_co2', 0),
-            data.get('std_total_co2', 0),
-            data.get('green_total_price', 0),
-            data.get('std_total_price', 0)
+            green_co2=data.get('green_total_co2', 0),
+            std_co2=data.get('std_total_co2', 0),
+            green_price=data.get('green_total_price', 0),
+            std_price=data.get('std_total_price', 0),
+            bal_co2=data.get('bal_total_co2'),
+            bal_price=data.get('bal_total_price')
         )
         story.append(KeepTogether([
             Paragraph("Comparative Cost & Carbon Breakdown Chart", h2_style),

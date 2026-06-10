@@ -281,8 +281,23 @@ function App() {
   const bookTrip = async (packageType) => {
     if (!currentPackages) return;
 
-    const isGreen = packageType === 'green';
-    const pkg = isGreen ? currentPackages.green_choice : currentPackages.standard_choice;
+    let pkg;
+    let description;
+    let points = 0;
+    
+    if (packageType === 'green') {
+      pkg = currentPackages.green_choice;
+      description = "Eco Premium Package";
+      points = pkg.points_earned;
+    } else if (packageType === 'balanced') {
+      pkg = currentPackages.balanced_choice;
+      description = "Eco Balanced Package";
+      points = pkg.points_earned;
+    } else {
+      pkg = currentPackages.standard_choice;
+      description = "Standard Package";
+      points = 0;
+    }
 
     try {
       const res = await fetch(`${API_URL}/api/book`, {
@@ -292,10 +307,10 @@ function App() {
           destination: currentPackages.destination,
           days: currentPackages.days,
           package_type: packageType,
-          description: isGreen ? "Eco Premium Package" : "Standard Package",
+          description: description,
           co2_amount: pkg.total_co2,
           price_usd: pkg.total_price_usd,
-          points_earned: isGreen ? pkg.points_earned : 0
+          points_earned: points
         })
       });
       
@@ -403,6 +418,28 @@ function App() {
         std_total_price: packageSummary.standard_choice.total_price_usd,
         co2_savings: packageSummary.green_choice.co2_savings,
         points_earned: packageSummary.green_choice.points_earned,
+        bal_flight: packageSummary.balanced_choice ? {
+          carrier: packageSummary.balanced_choice.flight.carrier,
+          co2_kg: packageSummary.balanced_choice.flight.co2_kg,
+          price_usd: packageSummary.balanced_choice.flight.price_usd,
+          details: packageSummary.balanced_choice.flight.details,
+        } : null,
+        bal_stay: packageSummary.balanced_choice ? {
+          hotel: packageSummary.balanced_choice.stay.hotel,
+          co2_kg: packageSummary.balanced_choice.stay.co2_kg,
+          price_usd: packageSummary.balanced_choice.stay.price_usd,
+          details: packageSummary.balanced_choice.stay.details,
+        } : null,
+        bal_transit: packageSummary.balanced_choice ? {
+          vehicle: packageSummary.balanced_choice.transit.vehicle,
+          co2_kg: packageSummary.balanced_choice.transit.co2_kg,
+          price_usd: packageSummary.balanced_choice.transit.price_usd,
+          details: packageSummary.balanced_choice.transit.details,
+        } : null,
+        bal_total_co2: packageSummary.balanced_choice ? packageSummary.balanced_choice.total_co2 : null,
+        bal_total_price: packageSummary.balanced_choice ? packageSummary.balanced_choice.total_price_usd : null,
+        bal_co2_savings: packageSummary.balanced_choice ? packageSummary.balanced_choice.co2_savings : null,
+        bal_points_earned: packageSummary.balanced_choice ? packageSummary.balanced_choice.points_earned : null,
       } : {
         destination: null,
         days: null,
@@ -417,7 +454,14 @@ function App() {
         std_total_co2: null,
         std_total_price: null,
         co2_savings: null,
-        points_earned: null
+        points_earned: null,
+        bal_flight: null,
+        bal_stay: null,
+        bal_transit: null,
+        bal_total_co2: null,
+        bal_total_price: null,
+        bal_co2_savings: null,
+        bal_points_earned: null,
       };
 
       const res = await fetch(`${API_URL}/api/download-pdf`, {
@@ -880,8 +924,256 @@ function App() {
         )}
 
         {/* ==================== TAB: AI BOOKING AGENT ==================== */}
+        {/* ==================== TAB: AI BOOKING AGENT ==================== */}
         {activeTab === 'agent' && (
           <div className="agent-container">
+            {/* Synthesized packages results */}
+            {currentPackages && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', marginBottom: '2rem' }}>
+                {/* Comparison Title Card */}
+                <div className="glass-card" style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(21, 28, 44, 0.6) 100%)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: '250px' }}>
+                    <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.4rem', fontWeight: 700, color: 'var(--primary)' }}>
+                      Travel Packages for {currentPackages.destination} ({currentPackages.days} Days)
+                    </h3>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.25rem' }}>
+                      Choosing Eco Premium saves <strong>{currentPackages.green_choice.co2_savings} kg CO₂</strong>, while Balanced saves <strong>{currentPackages.balanced_choice ? currentPackages.balanced_choice.co2_savings : 0} kg CO₂</strong>.
+                    </p>
+                  </div>
+                  
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                    <button
+                      onClick={() => downloadReportPdf(currentPackages)}
+                      className="package-action-btn primary"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        padding: '0.6rem 1.2rem',
+                        borderRadius: '8px',
+                        background: 'var(--primary)',
+                        color: 'var(--bg)',
+                        border: 'none',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 12px var(--primary-light)',
+                        transition: 'transform 0.2s, box-shadow 0.2s'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.boxShadow = '0 6px 16px var(--primary-light)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = '0 4px 12px var(--primary-light)';
+                      }}
+                    >
+                      <Download size={16} />
+                      Download PDF Report
+                    </button>
+                    
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Points Reward</div>
+                      <div style={{ color: 'var(--accent)', fontFamily: 'var(--font-heading)', fontSize: '1.8rem', fontWeight: 800 }}>+{currentPackages.green_choice.points_earned} PTS</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Side by side cards */}
+                <div className="packages-wrapper">
+                  {/* Eco-Green Package */}
+                  <div className="glass-card package-card recommended">
+                    <span className="badge-recommended">Eco Premium</span>
+                    <div className="package-header">
+                      <h3 className="package-title">Eco Premium Itinerary</h3>
+                      <span className="package-co2-badge eco">
+                        <Leaf size={14} />
+                        {currentPackages.green_choice.total_co2} kg CO₂ Total
+                      </span>
+                    </div>
+
+                    <div className="package-body">
+                      <div className="package-item eco">
+                        <div className="package-item-icon">
+                          <Plane size={18} />
+                        </div>
+                        <div className="package-item-details">
+                          <h4>Flight Option</h4>
+                          <p>{currentPackages.green_choice.flight.carrier}</p>
+                          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{currentPackages.green_choice.flight.details}</p>
+                        </div>
+                        <div className="package-item-co2">{currentPackages.green_choice.flight.co2_kg} kg</div>
+                      </div>
+
+                      <div className="package-item eco">
+                        <div className="package-item-icon">
+                          <Hotel size={18} />
+                        </div>
+                        <div className="package-item-details">
+                          <h4>Accommodation</h4>
+                          <p>{currentPackages.green_choice.stay.hotel}</p>
+                          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{currentPackages.green_choice.stay.details}</p>
+                        </div>
+                        <div className="package-item-co2">{currentPackages.green_choice.stay.co2_kg} kg</div>
+                      </div>
+
+                      <div className="package-item eco">
+                        <div className="package-item-icon">
+                          <Car size={18} />
+                        </div>
+                        <div className="package-item-details">
+                          <h4>Local Transit</h4>
+                          <p>{currentPackages.green_choice.transit.vehicle}</p>
+                          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{currentPackages.green_choice.transit.details}</p>
+                        </div>
+                        <div className="package-item-co2">{currentPackages.green_choice.transit.co2_kg} kg</div>
+                      </div>
+
+                      <div className="package-summary">
+                        <strong>AI Summary justification:</strong> {currentPackages.green_choice.summary}
+                      </div>
+                    </div>
+
+                    <div className="package-footer">
+                      <div className="package-price-info">
+                        <h5>Estimated Cost</h5>
+                        <p>${currentPackages.green_choice.total_price_usd.toLocaleString()}</p>
+                      </div>
+                      <button className="package-action-btn primary" onClick={() => bookTrip('green')}>
+                        Book Eco Premium
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Eco-Balanced Package */}
+                  {currentPackages.balanced_choice && (
+                    <div className="glass-card package-card balanced">
+                      <span className="badge-balanced">Eco Balanced</span>
+                      <div className="package-header">
+                        <h3 className="package-title">Eco Balanced Itinerary</h3>
+                        <span className="package-co2-badge balanced">
+                          <Compass size={14} />
+                          {currentPackages.balanced_choice.total_co2} kg CO₂ Total
+                        </span>
+                      </div>
+
+                      <div className="package-body">
+                        <div className="package-item balanced">
+                          <div className="package-item-icon">
+                            <Plane size={18} />
+                          </div>
+                          <div className="package-item-details">
+                            <h4>Flight Option</h4>
+                            <p>{currentPackages.balanced_choice.flight.carrier}</p>
+                            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{currentPackages.balanced_choice.flight.details}</p>
+                          </div>
+                          <div className="package-item-co2">{currentPackages.balanced_choice.flight.co2_kg} kg</div>
+                        </div>
+
+                        <div className="package-item balanced">
+                          <div className="package-item-icon">
+                            <Hotel size={18} />
+                          </div>
+                          <div className="package-item-details">
+                            <h4>Accommodation</h4>
+                            <p>{currentPackages.balanced_choice.stay.hotel}</p>
+                            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{currentPackages.balanced_choice.stay.details}</p>
+                          </div>
+                          <div className="package-item-co2">{currentPackages.balanced_choice.stay.co2_kg} kg</div>
+                        </div>
+
+                        <div className="package-item balanced">
+                          <div className="package-item-icon">
+                            <Car size={18} />
+                          </div>
+                          <div className="package-item-details">
+                            <h4>Local Transit</h4>
+                            <p>{currentPackages.balanced_choice.transit.vehicle}</p>
+                            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{currentPackages.balanced_choice.transit.details}</p>
+                          </div>
+                          <div className="package-item-co2">{currentPackages.balanced_choice.transit.co2_kg} kg</div>
+                        </div>
+
+                        <div className="package-summary balanced">
+                          <strong>AI Summary justification:</strong> {currentPackages.balanced_choice.summary}
+                        </div>
+                      </div>
+
+                      <div className="package-footer">
+                        <div className="package-price-info">
+                          <h5>Estimated Cost</h5>
+                          <p>${currentPackages.balanced_choice.total_price_usd.toLocaleString()}</p>
+                        </div>
+                        <button className="package-action-btn balanced" onClick={() => bookTrip('balanced')}>
+                          Book Eco Balanced
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Standard Package */}
+                  <div className="glass-card package-card standard-card">
+                    <span className="badge-standard">Standard Baseline</span>
+                    <div className="package-header">
+                      <h3 className="package-title">Standard Baseline Itinerary</h3>
+                      <span className="package-co2-badge standard">
+                        <AlertCircle size={14} />
+                        {currentPackages.standard_choice.total_co2} kg CO₂ Total
+                      </span>
+                    </div>
+
+                    <div className="package-body">
+                      <div className="package-item standard">
+                        <div className="package-item-icon">
+                          <Plane size={18} />
+                        </div>
+                        <div className="package-item-details">
+                          <h4>Flight Option</h4>
+                          <p>{currentPackages.standard_choice.flight.carrier}</p>
+                          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{currentPackages.standard_choice.flight.details}</p>
+                        </div>
+                        <div className="package-item-co2">{currentPackages.standard_choice.flight.co2_kg} kg</div>
+                      </div>
+
+                      <div className="package-item standard">
+                        <div className="package-item-icon">
+                          <Hotel size={18} />
+                        </div>
+                        <div className="package-item-details">
+                          <h4>Accommodation</h4>
+                          <p>{currentPackages.standard_choice.stay.hotel}</p>
+                          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{currentPackages.standard_choice.stay.details}</p>
+                        </div>
+                        <div className="package-item-co2">{currentPackages.standard_choice.stay.co2_kg} kg</div>
+                      </div>
+
+                      <div className="package-item standard">
+                        <div className="package-item-icon">
+                          <Car size={18} />
+                        </div>
+                        <div className="package-item-details">
+                          <h4>Local Transit</h4>
+                          <p>{currentPackages.standard_choice.transit.vehicle}</p>
+                          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{currentPackages.standard_choice.transit.details}</p>
+                        </div>
+                        <div className="package-item-co2">{currentPackages.standard_choice.transit.co2_kg} kg</div>
+                      </div>
+                    </div>
+
+                    <div className="package-footer">
+                      <div className="package-price-info">
+                        <h5>Estimated Cost</h5>
+                        <p>${currentPackages.standard_choice.total_price_usd.toLocaleString()}</p>
+                      </div>
+                      <button className="package-action-btn standard-btn" onClick={() => bookTrip('standard')}>
+                        Book Standard Baseline
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <div className="glass-card">
               <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.25rem', fontWeight: 600, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <Sparkles size={20} style={{ color: 'var(--primary)' }} />
@@ -1149,187 +1441,7 @@ function App() {
               </div>
             )}
 
-            {/* Synthesized packages results */}
-            {currentPackages && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                {/* Comparison Title Card */}
-                <div className="glass-card" style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(21, 28, 44, 0.6) 100%)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
-                  <div style={{ flex: 1, minWidth: '250px' }}>
-                    <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.4rem', fontWeight: 700, color: 'var(--primary)' }}>
-                      Travel Packages for {currentPackages.destination} ({currentPackages.days} Days)
-                    </h3>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.25rem' }}>
-                      Choosing the Eco package saves <strong>{currentPackages.green_choice.co2_savings} kg CO₂</strong>.
-                    </p>
-                  </div>
-                  
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                    <button
-                      onClick={() => downloadReportPdf(currentPackages)}
-                      className="package-action-btn primary"
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                        padding: '0.6rem 1.2rem',
-                        borderRadius: '8px',
-                        background: 'var(--primary)',
-                        color: 'var(--bg)',
-                        border: 'none',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        boxShadow: '0 4px 12px var(--primary-light)',
-                        transition: 'transform 0.2s, box-shadow 0.2s'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'translateY(-2px)';
-                        e.currentTarget.style.boxShadow = '0 6px 16px var(--primary-light)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = 'translateY(0)';
-                        e.currentTarget.style.boxShadow = '0 4px 12px var(--primary-light)';
-                      }}
-                    >
-                      <Download size={16} />
-                      Download PDF Report
-                    </button>
-                    
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Points Reward</div>
-                      <div style={{ color: 'var(--accent)', fontFamily: 'var(--font-heading)', fontSize: '1.8rem', fontWeight: 800 }}>+{currentPackages.green_choice.points_earned} PTS</div>
-                    </div>
-                  </div>
-                </div>
 
-                {/* Side by side cards */}
-                <div className="packages-wrapper">
-                  {/* Eco-Green Package */}
-                  <div className="glass-card package-card recommended">
-                    <span className="badge-recommended">Eco Choice</span>
-                    <div className="package-header">
-                      <h3 className="package-title">Eco Premium Itinerary</h3>
-                      <span className="package-co2-badge eco">
-                        <Leaf size={14} />
-                        {currentPackages.green_choice.total_co2} kg CO₂ Total
-                      </span>
-                    </div>
-
-                    <div className="package-body">
-                      <div className="package-item eco">
-                        <div className="package-item-icon">
-                          <Plane size={18} />
-                        </div>
-                        <div className="package-item-details">
-                          <h4>Flight Option</h4>
-                          <p>{currentPackages.green_choice.flight.carrier}</p>
-                          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{currentPackages.green_choice.flight.details}</p>
-                        </div>
-                        <div className="package-item-co2">{currentPackages.green_choice.flight.co2_kg} kg</div>
-                      </div>
-
-                      <div className="package-item eco">
-                        <div className="package-item-icon">
-                          <Hotel size={18} />
-                        </div>
-                        <div className="package-item-details">
-                          <h4>Accommodation</h4>
-                          <p>{currentPackages.green_choice.stay.hotel}</p>
-                          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{currentPackages.green_choice.stay.details}</p>
-                        </div>
-                        <div className="package-item-co2">{currentPackages.green_choice.stay.co2_kg} kg</div>
-                      </div>
-
-                      <div className="package-item eco">
-                        <div className="package-item-icon">
-                          <Car size={18} />
-                        </div>
-                        <div className="package-item-details">
-                          <h4>Local Transit</h4>
-                          <p>{currentPackages.green_choice.transit.vehicle}</p>
-                          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{currentPackages.green_choice.transit.details}</p>
-                        </div>
-                        <div className="package-item-co2">{currentPackages.green_choice.transit.co2_kg} kg</div>
-                      </div>
-
-                      <div className="package-summary">
-                        <strong>AI Summary justification:</strong> {currentPackages.green_choice.summary}
-                      </div>
-                    </div>
-
-                    <div className="package-footer">
-                      <div className="package-price-info">
-                        <h5>Estimated Cost</h5>
-                        <p>${currentPackages.green_choice.total_price_usd.toLocaleString()}</p>
-                      </div>
-                      <button className="package-action-btn primary" onClick={() => bookTrip('green')}>
-                        Book Green Choice
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Standard Package */}
-                  <div className="glass-card package-card">
-                    <div className="package-header">
-                      <h3 className="package-title">Standard Baseline Itinerary</h3>
-                      <span className="package-co2-badge standard">
-                        <AlertCircle size={14} />
-                        {currentPackages.standard_choice.total_co2} kg CO₂ Total
-                      </span>
-                    </div>
-
-                    <div className="package-body">
-                      <div className="package-item">
-                        <div className="package-item-icon">
-                          <Plane size={18} />
-                        </div>
-                        <div className="package-item-details">
-                          <h4>Flight Option</h4>
-                          <p>{currentPackages.standard_choice.flight.carrier}</p>
-                          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{currentPackages.standard_choice.flight.details}</p>
-                        </div>
-                        <div className="package-item-co2">{currentPackages.standard_choice.flight.co2_kg} kg</div>
-                      </div>
-
-                      <div className="package-item">
-                        <div className="package-item-icon">
-                          <Hotel size={18} />
-                        </div>
-                        <div className="package-item-details">
-                          <h4>Accommodation</h4>
-                          <p>{currentPackages.standard_choice.stay.hotel}</p>
-                          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{currentPackages.standard_choice.stay.details}</p>
-                        </div>
-                        <div className="package-item-co2">{currentPackages.standard_choice.stay.co2_kg} kg</div>
-                      </div>
-
-                      <div className="package-item">
-                        <div className="package-item-icon">
-                          <Car size={18} />
-                        </div>
-                        <div className="package-item-details">
-                          <h4>Local Transit</h4>
-                          <p>{currentPackages.standard_choice.transit.vehicle}</p>
-                          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{currentPackages.standard_choice.transit.details}</p>
-                        </div>
-                        <div className="package-item-co2">{currentPackages.standard_choice.transit.co2_kg} kg</div>
-                      </div>
-                    </div>
-
-                    <div className="package-footer">
-                      <div className="package-price-info">
-                        <h5>Estimated Cost</h5>
-                        <p>${currentPackages.standard_choice.total_price_usd.toLocaleString()}</p>
-                      </div>
-                      <button className="package-action-btn secondary" onClick={() => bookTrip('standard')}>
-                        Book Standard
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-
-              </div>
-            )}
           </div>
         )}
 

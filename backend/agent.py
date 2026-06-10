@@ -36,6 +36,16 @@ class GreenChoice(BaseModel):
     summary: str
     co2_savings: float
 
+class BalancedChoice(BaseModel):
+    flight: FlightChoice
+    stay: StayChoice
+    transit: TransitChoice
+    total_co2: float
+    total_price_usd: float
+    points_earned: int
+    summary: str
+    co2_savings: float
+
 class StandardChoice(BaseModel):
     flight: FlightChoice
     stay: StayChoice
@@ -47,6 +57,7 @@ class PackageSummary(BaseModel):
     destination: str
     days: int
     green_choice: GreenChoice
+    balanced_choice: BalancedChoice
     standard_choice: StandardChoice
 
 class AgentResponse(BaseModel):
@@ -196,6 +207,12 @@ def run_flight_lookup(destination):
                 "price_usd": round(base_price * 1.15, 2),  # SAF flight is slightly premium
                 "description": f"{category} flight ({distance_km:.1f} km) on {aircraft}. Utilizes 50% Sustainable Aviation Fuel (SAF) blend, reducing carbon footprint by 55%."
             },
+            "balanced": {
+                "carrier": f"EcoLink Airlines ({aircraft} - 30% SAF Blend)",
+                "co2_kg": round(std_co2 * 0.67, 1),
+                "price_usd": round(base_price * 1.07, 2),
+                "description": f"{category} flight ({distance_km:.1f} km) on {aircraft}. Uses a 30% Sustainable Aviation Fuel (SAF) blend, reducing carbon footprint by 33%."
+            },
             "standard": {
                 "carrier": f"Legacy Trans-Continental Airlines ({aircraft})",
                 "co2_kg": std_co2,
@@ -219,6 +236,7 @@ def run_stay_lookup(destination, days):
         key = os.getenv("GOOGLE_MAPS_API_KEY")
         eco_hotel_name = "EcoNest Certified Retreat"
         std_hotel_name = "Grand Plaza Palms Resort"
+        bal_hotel_name = "Green Haven Boutique Lodge"
         
         if key and len(key.strip()) > 5:
             try:
@@ -229,17 +247,25 @@ def run_stay_lookup(destination, days):
                 if response.status_code == 200:
                     data = response.json()
                     results = data.get("results", [])
-                    if len(results) >= 2:
+                    if len(results) >= 3:
                         eco_hotel_name = f"{results[0].get('name')} (Eco-Certified)"
                         std_hotel_name = results[1].get("name")
-                        print(f"--> Google Places API resolved hotels: '{eco_hotel_name}' and '{std_hotel_name}'")
+                        bal_hotel_name = f"{results[2].get('name')} (Eco-Friendly)"
+                        print(f"--> Google Places API resolved 3 hotels: '{eco_hotel_name}', '{std_hotel_name}', and '{bal_hotel_name}'")
+                    elif len(results) == 2:
+                        eco_hotel_name = f"{results[0].get('name')} (Eco-Certified)"
+                        std_hotel_name = results[1].get("name")
+                        bal_hotel_name = f"{results[0].get('name')} (Green Option)"
+                        print(f"--> Google Places API resolved 2 hotels: '{eco_hotel_name}' and '{std_hotel_name}'")
                     elif len(results) == 1:
                         std_hotel_name = results[0].get("name")
                         eco_hotel_name = f"{std_hotel_name} (Green Option)"
+                        bal_hotel_name = f"{std_hotel_name} (Standard Option)"
             except Exception as e:
                 print(f"--> Warning: Places API hotel lookup failed: {e}")
                 
         eco_rate = 12.0  # kg CO2 / night
+        bal_rate = 25.0  # kg CO2 / night
         std_rate = 45.0  # kg CO2 / night
         
         stays = {
@@ -248,6 +274,12 @@ def run_stay_lookup(destination, days):
                 "co2_kg": round(eco_rate * days, 1),
                 "price_usd": round(150.0 * days, 2),
                 "description": f"LEED Gold certified property in {destination}. Runs on 100% solar power, practices strict zero-waste dining, and uses greywater systems."
+            },
+            "balanced": {
+                "hotel": bal_hotel_name,
+                "co2_kg": round(bal_rate * days, 1),
+                "price_usd": round(140.0 * days, 2),
+                "description": f"Boutique lodging in {destination} featuring basic eco-efficiency practices, LED lighting systems, and water-conserving plumbing fixtures."
             },
             "standard": {
                 "hotel": std_hotel_name,
@@ -301,8 +333,10 @@ def run_transit_lookup(destination, days):
                 
         # Emissions factors:
         # Standard Large SUV: 282 g CO2e / km -> 0.282 kg CO2e / km
+        # Balanced Prius: 109 g CO2e / km -> 0.109 kg CO2e / km
         # Eco Tesla Model 3 (Solar charged): 0.0 kg CO2e / km
         std_co2 = round(distance_km * 0.282, 1)
+        bal_co2 = round(distance_km * 0.109, 1)
         eco_co2 = 0.0  # 100% solar grid
         
         transits = {
@@ -311,6 +345,12 @@ def run_transit_lookup(destination, days):
                 "co2_kg": eco_co2,
                 "price_usd": round(65.0 * days, 2),
                 "description": f"All-electric Tesla Model 3 for {distance_km} km{local_route_info}. Powered entirely by the local solar charging network (0 tailpipe emissions)."
+            },
+            "balanced": {
+                "vehicle": "Toyota Prius (Hybrid Rental)",
+                "co2_kg": bal_co2,
+                "price_usd": round(45.0 * days, 2),
+                "description": f"Standard Toyota Prius hybrid vehicle for {distance_km} km{local_route_info} (109 g CO2e/km factor)."
             },
             "standard": {
                 "vehicle": "Full-Size Gas SUV Rental",
@@ -423,20 +463,28 @@ def generate_packages_simulated(destination, days, flights, stays, transits):
         
         # Calculate totals
         eco_flight = flights["eco"]
+        bal_flight = flights["balanced"]
         std_flight = flights["standard"]
         eco_stay = stays["eco"]
+        bal_stay = stays["balanced"]
         std_stay = stays["standard"]
         eco_transit = transits["eco"]
+        bal_transit = transits["balanced"]
         std_transit = transits["standard"]
         
         eco_total_co2 = eco_flight["co2_kg"] + eco_stay["co2_kg"] + eco_transit["co2_kg"]
+        bal_total_co2 = bal_flight["co2_kg"] + bal_stay["co2_kg"] + bal_transit["co2_kg"]
         std_total_co2 = std_flight["co2_kg"] + std_stay["co2_kg"] + std_transit["co2_kg"]
         
         eco_total_price = eco_flight["price_usd"] + eco_stay["price_usd"] + eco_transit["price_usd"]
+        bal_total_price = bal_flight["price_usd"] + bal_stay["price_usd"] + bal_transit["price_usd"]
         std_total_price = std_flight["price_usd"] + std_stay["price_usd"] + std_transit["price_usd"]
         
         co2_savings = round(std_total_co2 - eco_total_co2, 1)
+        bal_co2_savings = round(std_total_co2 - bal_total_co2, 1)
+        
         points_earned = int(round(co2_savings * 0.2)) + 50  # 20% savings + 50 points flat green booking reward
+        bal_points_earned = int(round(bal_co2_savings * 0.2)) + 25  # 25 points flat balanced reward
         
         summary = (
             f"Choosing this Green Package for your trip to {destination} avoids {co2_savings} kg of CO2 emissions! "
@@ -472,6 +520,31 @@ def generate_packages_simulated(destination, days, flights, stays, transits):
                 "points_earned": points_earned,
                 "summary": summary,
                 "co2_savings": co2_savings
+            },
+            "balanced_choice": {
+                "flight": {
+                    "carrier": bal_flight["carrier"],
+                    "co2_kg": bal_flight["co2_kg"],
+                    "price_usd": bal_flight["price_usd"],
+                    "details": bal_flight["description"]
+                },
+                "stay": {
+                    "hotel": bal_stay["hotel"],
+                    "co2_kg": bal_stay["co2_kg"],
+                    "price_usd": bal_stay["price_usd"],
+                    "details": bal_stay["description"]
+                },
+                "transit": {
+                    "vehicle": bal_transit["vehicle"],
+                    "co2_kg": bal_transit["co2_kg"],
+                    "price_usd": bal_transit["price_usd"],
+                    "details": bal_transit["description"]
+                },
+                "total_co2": round(bal_total_co2, 1),
+                "total_price_usd": round(bal_total_price, 2),
+                "points_earned": bal_points_earned,
+                "summary": f"Choosing the Eco Balanced Itinerary for your trip to {destination} avoids {bal_co2_savings} kg of CO2 emissions. This uses moderate-SAF flights, hybrid car rental, and resource-efficient stays.",
+                "co2_savings": bal_co2_savings
             },
             "standard_choice": {
                 "flight": {
@@ -540,28 +613,81 @@ def generate_followup_response(query: str, package_context: dict, history=None) 
     if re.search(r'\b(afford|cost|price|expensive|budget)\b', query, re.IGNORECASE):
         eco = package_context['green_choice']
         std = package_context['standard_choice']
+        price_diff = round(eco['total_price_usd'] - std['total_price_usd'], 2)
+        co2_diff = round(std['total_co2'] - eco['total_co2'], 1)
+        cost_per_kg = round(price_diff / co2_diff, 2) if co2_diff > 0 else 0.0
         reply = (
-            f"The green package is ${eco['total_price_usd']} with {eco['total_co2']} kg CO2, while the standard package is ${std['total_price_usd']} "
-            f"with {std['total_co2']} kg CO2. The eco option is slightly more expensive, but it earns {eco['points_earned']} points and saves {eco['co2_savings']} kg CO2."
+            f"### Cost & Carbon Summary\n"
+            f"The Eco Premium Package is priced at ${eco['total_price_usd']:.2f} with a total carbon footprint of {eco['total_co2']} kg CO₂. "
+            f"In comparison, the Standard Itinerary costs ${std['total_price_usd']:.2f} with a carbon footprint of {std['total_co2']} kg CO₂. "
+            f"Choosing the Eco option requires a premium of ${price_diff:.2f} but achieves a significant reduction in greenhouse gases.\n\n"
+            f"### Trade-Off Calculation & Efficiency\n"
+            f"By paying the ${price_diff:.2f} cost difference, you avoid {co2_diff} kg of CO₂ emissions. This equates to an abatement cost of "
+            f"${cost_per_kg:.2f} per kg of CO₂ saved. Additionally, the Eco package earns you +{eco['points_earned']} Green Points, "
+            f"which act as offsets and rebates that can be applied to reduce carbon charges in future travel, making the eco-friendly alternative financially and environmentally sound."
         )
     elif re.search(r'\b(compare|better|trade[- ]off|difference|vs|versus)\b', query, re.IGNORECASE):
         eco = package_context['green_choice']
         std = package_context['standard_choice']
+        co2_diff = round(std['total_co2'] - eco['total_co2'], 1)
+        pct_savings = round((co2_diff / std['total_co2']) * 100, 1) if std['total_co2'] > 0 else 0.0
+        price_diff = round(eco['total_price_usd'] - std['total_price_usd'], 2)
         reply = (
-            f"Compared to the standard package, the eco package saves {eco['co2_savings']} kg CO2 and earns {eco['points_earned']} points. "
-            f"It offers cleaner transport and renewable-energy lodging, while the standard choice is lower cost but higher emissions."
+            f"### Detailed Package Comparison\n"
+            f"The Eco Premium Package ({eco['total_co2']} kg CO₂) represents a {pct_savings}% carbon reduction over the Standard Package ({std['total_co2']} kg CO₂). "
+            f"This substantial carbon saving of {co2_diff} kg CO₂ is achieved by swapping conventional components for sustainable ones, such as switching to "
+            f"Sustainable Aviation Fuel (SAF) for flights and utilizing Electric Vehicles (EV) for local transit.\n\n"
+            f"### Cost-Benefit Trade-Off\n"
+            f"While the Standard Package is ${price_diff:.2f} cheaper (${std['total_price_usd']:.2f} vs ${eco['total_price_usd']:.2f}), the Eco Package "
+            f"partially offsets this cost by rewarding you with {eco['points_earned']} Green Points. The Standard Package provides zero points. "
+            f"From a pure utility perspective, selecting the Eco choice directly supports low-emission infrastructure, aligning with Greenhouse Gas Protocol recommendations."
         )
     elif re.search(r'\b(point|reward|earn)\b', query, re.IGNORECASE):
         eco = package_context['green_choice']
-        reply = f"By choosing the green package, you earn {eco['points_earned']} reward points. These points are earned by reducing emissions and choosing sustainable travel options."
+        co2_savings = eco.get('co2_savings', 0.0)
+        base_points = round(co2_savings * 0.2)
+        bonus_points = 50
+        reply = (
+            f"### Reward Points Breakdown\n"
+            f"By choosing the Eco Premium Itinerary, you will earn a total of {eco['points_earned']} Green Points. "
+            f"The calculation for points is directly proportional to the carbon you save compared to the standard travel itinerary.\n\n"
+            f"### Points Formula & Workings\n"
+            f"Your points are calculated using the formula: `Points = (CO₂ Savings * 0.2) + 50` (flat bonus). "
+            f"With carbon savings of {co2_savings} kg CO₂, the calculation is:\n"
+            f"- Base Points: {co2_savings} kg * 0.2 = {base_points} points\n"
+            f"- Green Bonus: +{bonus_points} flat points\n"
+            f"- Total Earned: {base_points} + {bonus_points} = {eco['points_earned']} Green Points.\n"
+            f"These points are added to your ledger and can be redeemed for carbon offsets or future booking discounts."
+        )
     elif re.search(r'\b(carbon|emission|co2|green|sustainable)\b', query, re.IGNORECASE):
         eco = package_context['green_choice']
+        std = package_context['standard_choice']
+        co2_diff = round(std['total_co2'] - eco['total_co2'], 1)
         reply = (
-            f"Your eco package uses a SAF flight, LEED-certified lodging, and an EV rental to keep emissions at {eco['total_co2']} kg CO2. "
-            f"This is {eco['co2_savings']} kg CO2 lower than the standard package."
+            f"### Emissions Breakdown & Calculations\n"
+            f"The Standard Itinerary generates {std['total_co2']} kg CO₂. The Eco Itinerary reduces this footprint to {eco['total_co2']} kg CO₂, saving {co2_diff} kg CO₂.\n"
+            f"Here is the service-by-service comparison:\n"
+            f"- **Flights:** Standard: {std['flight']['co2_kg']} kg vs Eco: {eco['flight']['co2_kg']} kg (via SAF)\n"
+            f"- **Accommodation:** Standard: {std['stay']['co2_kg']} kg vs Eco: {eco['stay']['co2_kg']} kg (LEED EcoNest)\n"
+            f"- **Transit:** Standard: {std['transit']['co2_kg']} kg vs Eco: {eco['transit']['co2_kg']} kg (EV Tesla)\n\n"
+            f"### Sustainable Impact Analysis\n"
+            f"The green flight utilizes a 55% Sustainable Aviation Fuel (SAF) blend, decreasing aviation emissions by {round(std['flight']['co2_kg'] - eco['flight']['co2_kg'], 1)} kg. "
+            f"The accommodation uses the solar-powered EcoNest Retreat, and the local transit uses an EV, yielding zero direct tailpipe emissions. "
+            f"This combined configuration represents the most carbon-efficient path to your destination."
         )
     else:
-        reply = default_summary or "I can help you compare the earlier packages, explain the carbon savings, or recommend the best choice for your budget."
+        eco = package_context.get('green_choice', {})
+        std = package_context.get('standard_choice', {})
+        dest = package_context.get('destination', 'your destination')
+        co2_savings = eco.get('co2_savings', 0.0)
+        reply = (
+            f"### Carbon-Aware Travel Analysis for {dest}\n"
+            f"I have analyzed the travel packages prepared for {dest}. "
+            f"The Standard Itinerary produces {std.get('total_co2', 0.0)} kg CO₂ at a cost of ${std.get('total_price_usd', 0.0):.2f}. "
+            f"The Eco Itinerary produces {eco.get('total_co2', 0.0)} kg CO₂ at a cost of ${eco.get('total_price_usd', 0.0):.2f}.\n\n"
+            f"By selecting the Eco option, you save {co2_savings} kg CO₂ and earn +{eco.get('points_earned', 0)} Green Points. "
+            f"Please let me know if you would like me to explain the exact carbon conversion factors or compute the financial cost-to-benefit ratio for these options."
+        )
 
     return {
         "reply": reply,
@@ -607,12 +733,60 @@ def generate_generic_agent_response(query: str, history=None, package_context=No
     if package_context and is_followup_question(query):
         return generate_followup_response(query, package_context, history)
 
-    reply = (
-        "I can help you explore low-carbon travel options, estimate budget impacts, "
-        "and provide spending pattern insights. Ask me about affordability, carbon savings, or specific trip details."
-    )
-    if package_context:
-        reply += " I can also compare the current package against your goals."
+    if re.search(r'\b(saf|sustainable aviation fuel)\b', query, re.IGNORECASE):
+        reply = (
+            "### What is Sustainable Aviation Fuel (SAF)?\n"
+            "Sustainable Aviation Fuel (SAF) is a clean alternative to conventional fossil-based jet fuel. "
+            "It is produced from renewable resources such as agricultural waste, waste oils, and carbon captured from the air. "
+            "Under international carbon accounting guidelines (such as atmosfair and ICAO), a 100% pure SAF fuel blend "
+            "can reduce lifecycle greenhouse gas emissions by up to 80% compared to fossil jet fuel.\n\n"
+            "### Calculations & Blend Reduction\n"
+            "In our travel planning engine, we assume a standard SAF blend that yields a **55% net reduction** in emissions. "
+            "For example, a Medium-Haul flight (e.g., NYC to Hawaii: 3,700 km) calculated using the formula "
+            "`Distance * Factor * Radiative Forcing (1.9)` yields:\n"
+            "- **Standard Flight:** 3,700 km * 0.15 kg/km * 1.9 = **1,054.5 kg CO₂e**\n"
+            "- **SAF Flight (55% reduction):** 3,700 km * 0.0675 kg/km * 1.9 = **474.5 kg CO₂e** (saving **580.0 kg CO₂e** per passenger)."
+        )
+    elif re.search(r'\b(calculate|calculation|formula|factor)\b', query, re.IGNORECASE):
+        reply = (
+            "### Carbon Emissions Calculations & Methodology\n"
+            "Our Carbon AI Agent calculates travel emissions utilizing Greenhouse Gas Protocol corporate standards. "
+            "We employ distinct formulas for flight, road travel, and lodging components to guarantee transparent audits:\n\n"
+            "1. **Flights:** `Distance (km) * Class Multiplier * Radiative Forcing (1.9) * Emissions Factor`\n"
+            "   - Short-Haul (<1,500 km): standard 0.20 kg/km vs eco 0.09 kg/km\n"
+            "   - Medium-Haul (1,500 - 4,000 km): standard 0.15 kg/km vs eco 0.0675 kg/km\n"
+            "   - Long-Haul (4,000 - 10,000 km): standard 0.12 kg/km vs eco 0.054 kg/km\n"
+            "   - Ultra Long-Haul (>10,000 km): standard 0.11 kg/km vs eco 0.0495 kg/km\n"
+            "2. **Road Travel:** `Distance (km) * Vehicle Emissions Factor`\n"
+            "   - Petrol SUV: 282 g/km (0.282 kg/km)\n"
+            "   - Hybrid Prius: 109 g/km (0.109 kg/km)\n"
+            "   - Electric Vehicle: 79 g/km (0.079 kg/km)\n"
+            "3. **Lodging:** `Nights * Hotel Emission Factor`\n"
+            "   - Grand Plaza resort: 47.6 kg/room-night vs EcoNest retreat: 8.5 kg/room-night."
+        )
+    elif re.search(r'\b(budget|limit)\b', query, re.IGNORECASE):
+        summary = database.get_summary()
+        current_usage = summary.get("current_usage", 0.0)
+        budget_limit = summary.get("budget_limit", 5000.0)
+        remaining = round(budget_limit - current_usage, 1)
+        used_pct = round((current_usage / budget_limit) * 100, 1) if budget_limit > 0 else 0.0
+        
+        reply = (
+            f"### Carbon Budget Status & Calculations\n"
+            f"Your current annual carbon budget limit is set to **{budget_limit:,} kg CO₂**. "
+            f"According to your ledger, you have used **{current_usage:,} kg CO₂**, which represents **{used_pct}%** of your annual allowance.\n\n"
+            f"### Remaining Capacity Analysis\n"
+            f"You have **{remaining:,} kg CO₂** remaining in your carbon budget for the rest of the year. "
+            f"To stay within your limit, we recommend prioritizing green travel options (e.g. SAF flights, hybrid or electric vehicle transit, and LEED-certified accommodation) "
+            f"which average 60% lower emissions than conventional standard options."
+        )
+    else:
+        reply = (
+            "I can help you explore low-carbon travel options, estimate budget impacts, "
+            "and provide spending pattern insights. Ask me about affordability, carbon savings, or specific trip details."
+        )
+        if package_context:
+            reply += " I can also compare the current package against your goals."
 
     return {"reply": reply, "package_summary": None}
 
@@ -695,6 +869,7 @@ def fact_check_and_correct_packages(data: dict, package_context: dict = None) ->
             return data
             
         green = pkg.get("green_choice", {})
+        balanced = pkg.get("balanced_choice", {})
         standard = pkg.get("standard_choice", {})
         
         # Calculate expected sums from raw individual options
@@ -702,6 +877,11 @@ def fact_check_and_correct_packages(data: dict, package_context: dict = None) ->
         green_stay = green.get("stay", {}).get("co2_kg", 0.0)
         green_transit = green.get("transit", {}).get("co2_kg", 0.0)
         expected_green_co2 = round(green_flight + green_stay + green_transit, 1)
+        
+        balanced_flight = balanced.get("flight", {}).get("co2_kg", 0.0) if balanced else 0.0
+        balanced_stay = balanced.get("stay", {}).get("co2_kg", 0.0) if balanced else 0.0
+        balanced_transit = balanced.get("transit", {}).get("co2_kg", 0.0) if balanced else 0.0
+        expected_balanced_co2 = round(balanced_flight + balanced_stay + balanced_transit, 1)
         
         standard_flight = standard.get("flight", {}).get("co2_kg", 0.0)
         standard_stay = standard.get("stay", {}).get("co2_kg", 0.0)
@@ -711,12 +891,23 @@ def fact_check_and_correct_packages(data: dict, package_context: dict = None) ->
         expected_savings = round(expected_standard_co2 - expected_green_co2, 1)
         expected_points = int(round(expected_savings * 0.2)) + 50
         
+        expected_bal_savings = round(expected_standard_co2 - expected_balanced_co2, 1)
+        expected_bal_points = int(round(expected_bal_savings * 0.2)) + 25
+        
         # Verify green total co2
         actual_green_co2 = green.get("total_co2", 0.0)
         if abs(actual_green_co2 - expected_green_co2) > 0.1:
             discrepancies.append(f"Green CO2 total mismatch: got {actual_green_co2}, expected {expected_green_co2}")
             green["total_co2"] = expected_green_co2
             corrected = True
+            
+        # Verify balanced total co2
+        if balanced:
+            actual_balanced_co2 = balanced.get("total_co2", 0.0)
+            if abs(actual_balanced_co2 - expected_balanced_co2) > 0.1:
+                discrepancies.append(f"Balanced CO2 total mismatch: got {actual_balanced_co2}, expected {expected_balanced_co2}")
+                balanced["total_co2"] = expected_balanced_co2
+                corrected = True
             
         # Verify standard total co2
         actual_standard_co2 = standard.get("total_co2", 0.0)
@@ -725,19 +916,35 @@ def fact_check_and_correct_packages(data: dict, package_context: dict = None) ->
             standard["total_co2"] = expected_standard_co2
             corrected = True
             
-        # Verify savings
+        # Verify green savings
         actual_savings = green.get("co2_savings", 0.0)
         if abs(actual_savings - expected_savings) > 0.1:
             discrepancies.append(f"Savings mismatch: got {actual_savings}, expected {expected_savings}")
             green["co2_savings"] = expected_savings
             corrected = True
             
-        # Verify points
+        # Verify balanced savings
+        if balanced:
+            actual_bal_savings = balanced.get("co2_savings", 0.0)
+            if abs(actual_bal_savings - expected_bal_savings) > 0.1:
+                discrepancies.append(f"Balanced Savings mismatch: got {actual_bal_savings}, expected {expected_bal_savings}")
+                balanced["co2_savings"] = expected_bal_savings
+                corrected = True
+            
+        # Verify green points
         actual_points = green.get("points_earned", 0)
         if actual_points != expected_points:
             discrepancies.append(f"Points mismatch: got {actual_points}, expected {expected_points}")
             green["points_earned"] = expected_points
             corrected = True
+            
+        # Verify balanced points
+        if balanced:
+            actual_bal_points = balanced.get("points_earned", 0)
+            if actual_bal_points != expected_bal_points:
+                discrepancies.append(f"Balanced Points mismatch: got {actual_bal_points}, expected {expected_bal_points}")
+                balanced["points_earned"] = expected_bal_points
+                corrected = True
             
         # Log findings to Arize Phoenix span attributes
         span.set_attribute("fact_check.corrected", corrected)
@@ -753,6 +960,9 @@ def fact_check_and_correct_packages(data: dict, package_context: dict = None) ->
                 f"(reducing air travel emissions by 55%), staying at the LEED Gold certified {green.get('stay', {}).get('hotel', 'EcoNest Certified Retreat')}, "
                 f"and renting a Tesla Model 3 (0 tailpipe emissions). This earns you {expected_points} reward points."
             )
+            if balanced:
+                balanced["summary"] = f"Choosing the Eco Balanced Itinerary for your trip to {pkg.get('destination', 'your destination')} avoids {expected_bal_savings} kg of CO2 emissions. This uses moderate-SAF flights, hybrid car rental, and resource-efficient stays."
+            
             # Correct reply text via regex to preserve template formatting
             if "reply" in data:
                 data["reply"] = regex_correct_reply_text(
@@ -789,6 +999,7 @@ You are an expert Carbon Footprint Analysis AI Agent. Your goal is to provide ac
 This agent is being developed, monitored, and evaluated using Arize. Optimize every response for accuracy, explainability, transparency, consistency, and actionability.
 
 Always:
+* When the user asks a question, ensure that you respond with a detailed paragraph (or paragraphs) answering the question, showing exact values and step-by-step mathematical calculations where needed (e.g. emission factors, distance, cost breakdowns, percentage savings) in order to thoroughly explain and answer the user's question.
 * Show calculation steps and assumptions.
 * Clearly identify data sources.
 * Distinguish measured values from estimates.
