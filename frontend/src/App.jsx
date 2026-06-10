@@ -355,6 +355,99 @@ function App() {
     }
   };
 
+  const downloadReportPdf = async (packageSummary = null) => {
+    try {
+      showToast("Generating Carbon Intelligence PDF...");
+      const payload = packageSummary ? {
+        destination: packageSummary.destination,
+        days: packageSummary.days,
+        green_flight: {
+          carrier: packageSummary.green_choice.flight.carrier,
+          co2_kg: packageSummary.green_choice.flight.co2_kg,
+          price_usd: packageSummary.green_choice.flight.price_usd,
+          details: packageSummary.green_choice.flight.details,
+        },
+        green_stay: {
+          hotel: packageSummary.green_choice.stay.hotel,
+          co2_kg: packageSummary.green_choice.stay.co2_kg,
+          price_usd: packageSummary.green_choice.stay.price_usd,
+          details: packageSummary.green_choice.stay.details,
+        },
+        green_transit: {
+          vehicle: packageSummary.green_choice.transit.vehicle,
+          co2_kg: packageSummary.green_choice.transit.co2_kg,
+          price_usd: packageSummary.green_choice.transit.price_usd,
+          details: packageSummary.green_choice.transit.details,
+        },
+        std_flight: {
+          carrier: packageSummary.standard_choice.flight.carrier,
+          co2_kg: packageSummary.standard_choice.flight.co2_kg,
+          price_usd: packageSummary.standard_choice.flight.price_usd,
+          details: packageSummary.standard_choice.flight.details,
+        },
+        std_stay: {
+          hotel: packageSummary.standard_choice.stay.hotel,
+          co2_kg: packageSummary.standard_choice.stay.co2_kg,
+          price_usd: packageSummary.standard_choice.stay.price_usd,
+          details: packageSummary.standard_choice.stay.details,
+        },
+        std_transit: {
+          vehicle: packageSummary.standard_choice.transit.vehicle,
+          co2_kg: packageSummary.standard_choice.transit.co2_kg,
+          price_usd: packageSummary.standard_choice.transit.price_usd,
+          details: packageSummary.standard_choice.transit.details,
+        },
+        green_total_co2: packageSummary.green_choice.total_co2,
+        green_total_price: packageSummary.green_choice.total_price_usd,
+        std_total_co2: packageSummary.standard_choice.total_co2,
+        std_total_price: packageSummary.standard_choice.total_price_usd,
+        co2_savings: packageSummary.green_choice.co2_savings,
+        points_earned: packageSummary.green_choice.points_earned,
+      } : {
+        destination: null,
+        days: null,
+        green_flight: null,
+        green_stay: null,
+        green_transit: null,
+        std_flight: null,
+        std_stay: null,
+        std_transit: null,
+        green_total_co2: null,
+        green_total_price: null,
+        std_total_co2: null,
+        std_total_price: null,
+        co2_savings: null,
+        points_earned: null
+      };
+
+      const res = await fetch(`${API_URL}/api/download-pdf`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to generate PDF");
+      }
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `GreenRoute_Report_${packageSummary?.destination || 'Summary'}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      showToast("PDF report downloaded successfully!");
+    } catch (err) {
+      console.error("Error downloading PDF:", err);
+      showToast("Error downloading PDF report.");
+    }
+  };
+
   // Render budget ratio and progress fill color
   const budgetRatio = summary.current_usage / summary.budget_limit;
   const progressPercent = Math.min(100, budgetRatio * 100);
@@ -659,23 +752,52 @@ function App() {
                 <Database size={20} style={{ color: '#a855f7' }} />
                 Carbon Spending Patterns (Arize Observability)
               </h2>
-              <button 
-                onClick={fetchCarbonPatterns}
-                disabled={patternsLoading}
-                style={{
-                  padding: '0.5rem 1rem',
-                  background: 'rgba(168, 85, 247, 0.3)',
-                  border: '1px solid rgba(168, 85, 247, 0.5)',
-                  color: '#a855f7',
-                  borderRadius: '8px',
-                  cursor: patternsLoading ? 'not-allowed' : 'pointer',
-                  fontWeight: 600,
-                  fontSize: '0.85rem',
-                  transition: 'all 0.3s'
-                }}
-              >
-                {patternsLoading ? 'Analyzing...' : 'Analyze Patterns'}
-              </button>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                {carbonPatterns && (
+                  <button 
+                    onClick={() => downloadReportPdf(null)}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      background: 'rgba(168, 85, 247, 0.1)',
+                      border: '1px solid rgba(168, 85, 247, 0.3)',
+                      color: '#a855f7',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                      fontSize: '0.85rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      transition: 'all 0.3s'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(168, 85, 247, 0.2)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgba(168, 85, 247, 0.1)';
+                    }}
+                  >
+                    <Download size={14} /> Download PDF
+                  </button>
+                )}
+                <button 
+                  onClick={fetchCarbonPatterns}
+                  disabled={patternsLoading}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    background: 'rgba(168, 85, 247, 0.3)',
+                    border: '1px solid rgba(168, 85, 247, 0.5)',
+                    color: '#a855f7',
+                    borderRadius: '8px',
+                    cursor: patternsLoading ? 'not-allowed' : 'pointer',
+                    fontWeight: 600,
+                    fontSize: '0.85rem',
+                    transition: 'all 0.3s'
+                  }}
+                >
+                  {patternsLoading ? 'Analyzing...' : 'Analyze Patterns'}
+                </button>
+              </div>
             </div>
 
             {patternsTrace && (
@@ -824,6 +946,35 @@ function App() {
                               }}
                             >
                               Compare Options
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                downloadReportPdf(message.packageSummary);
+                              }}
+                              className="package-action-btn primary"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.4rem',
+                                padding: '0.4rem 0.8rem',
+                                fontSize: '0.8rem',
+                                borderRadius: '4px',
+                                background: 'rgba(16, 185, 129, 0.2)',
+                                border: '1px solid rgba(16, 185, 129, 0.4)',
+                                color: 'var(--primary)',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = 'rgba(16, 185, 129, 0.3)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = 'rgba(16, 185, 129, 0.2)';
+                              }}
+                            >
+                              <Download size={14} /> Download PDF
                             </button>
                           </div>
                         </div>
@@ -1012,9 +1163,41 @@ function App() {
                     </p>
                   </div>
                   
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Points Reward</div>
-                    <div style={{ color: 'var(--accent)', fontFamily: 'var(--font-heading)', fontSize: '1.8rem', fontWeight: 800 }}>+{currentPackages.green_choice.points_earned} PTS</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                    <button
+                      onClick={() => downloadReportPdf(currentPackages)}
+                      className="package-action-btn primary"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        padding: '0.6rem 1.2rem',
+                        borderRadius: '8px',
+                        background: 'var(--primary)',
+                        color: 'var(--bg)',
+                        border: 'none',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 12px var(--primary-light)',
+                        transition: 'transform 0.2s, box-shadow 0.2s'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.boxShadow = '0 6px 16px var(--primary-light)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = '0 4px 12px var(--primary-light)';
+                      }}
+                    >
+                      <Download size={16} />
+                      Download PDF Report
+                    </button>
+                    
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Points Reward</div>
+                      <div style={{ color: 'var(--accent)', fontFamily: 'var(--font-heading)', fontSize: '1.8rem', fontWeight: 800 }}>+{currentPackages.green_choice.points_earned} PTS</div>
+                    </div>
                   </div>
                 </div>
 
