@@ -556,7 +556,8 @@ function App() {
               onClick={() => setActiveTab('agent')}
             >
               <Sparkles className="nav-item-icon" size={18} />
-              <span>AI Eco-Agent</span>
+              <span>Book A Trip</span>
+  
             </a>
           </li>
           <li>

@@ -8,17 +8,26 @@ tracer = None
 
 def is_port_in_use(port: int) -> bool:
     """Checks if a local TCP port is already active."""
-    # Check IPv4
+    # 1. Try connecting to the port on localhost (very reliable check for active listeners)
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.bind(("127.0.0.1", port))
+            s.settimeout(0.1)
+            s.connect(("127.0.0.1", port))
+            return True
+    except OSError:
+        pass
+
+    # 2. Try binding to wildcard IPv4
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("", port))
     except OSError:
         return True
 
-    # Check IPv6
+    # 3. Try binding to wildcard IPv6
     try:
         with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
-            s.bind(("::1", port))
+            s.bind(("::", port))
     except OSError:
         return True
 

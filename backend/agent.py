@@ -93,15 +93,22 @@ def is_query_related(query: str) -> bool:
 
 def parse_query_regex(query):
     # Regex to extract destination and duration
-    # E.g. "Hawaii on a 3-day trip" or "paris for 5 days"
-    dest_match = re.search(r'(?:to|visit|travel to|in)\s+([A-Za-z\s]+?)(?:\s+(?:on|for|a|at)|$)', query, re.IGNORECASE)
+    # We use finditer to find all matches of to/visit/travel to/in <destination>
+    # and select the first one that is not a common verb or article.
+    matches = re.finditer(r'\b(?:to|visit|travel to|in)\s+([A-Za-z\s]+?)(?:\s+(?:on|for|a|at|during|trip|vacation|days|day)|$)', query, re.IGNORECASE)
+    destination = None
+    for m in matches:
+        val = m.group(1).strip()
+        if val.lower() not in ["plan", "book", "go", "take", "make", "get", "a", "an", "the", "my", "our", "explore", "see", "fly", "rent", "find", "arrange", "schedule"]:
+            destination = val
+            break
+
+    if not destination:
+        # Fallback default if nothing extracted
+        destination = "Hawaii"
+
     days_match = re.search(r'(\d+)\s*-?\s*day', query, re.IGNORECASE)
-    
-    destination = "Hawaii"
     days = 3
-    
-    if dest_match:
-        destination = dest_match.group(1).strip()
     if days_match:
         days = int(days_match.group(1))
         
@@ -130,6 +137,118 @@ def get_coordinates_from_places(destination: str):
         print(f"--> Warning: Places API coordinate lookup failed: {e}")
     return None
 
+def get_coordinates_from_geocoding(destination: str):
+    """Calls Google Geocoding API to resolve destination coordinates (latitude/longitude)."""
+    key = os.getenv("GOOGLE_MAPS_API_KEY") or os.getenv("GOOGLE_GEOCODING_API_KEY")
+    if not key or len(key.strip()) < 5:
+        return None
+    
+    tracer = get_tracer()
+    with tracer.start_as_current_span("geocoding_lookup") as span:
+        span.set_attribute(SPAN_KIND_KEY, SPAN_KIND_TOOL)
+        span.set_attribute("tool.name", "geocoding_lookup")
+        span.set_attribute("input.value", json.dumps({"destination": destination}))
+        try:
+            import requests
+            url = "https://maps.googleapis.com/maps/api/geocode/json"
+            params = {"address": destination, "key": key}
+            response = requests.get(url, params=params, timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                results = data.get("results", [])
+                if results:
+                    location = results[0].get("geometry", {}).get("location", {})
+                    lat = location.get("lat")
+                    lng = location.get("lng")
+                    if lat is not None and lng is not None:
+                        span.set_attribute("output.value", json.dumps({"lat": lat, "lng": lng}))
+                        return lat, lng
+        except Exception as e:
+            print(f"--> Warning: Geocoding API coordinate lookup failed: {e}")
+            span.record_exception(e)
+    return None
+
+REAL_FLIGHTS_FALLBACK = {
+    "paris": [
+        {"airline": "Air France", "flight_num": "AF015", "aircraft": "Boeing 777-300ER"},
+        {"airline": "Delta Air Lines", "flight_num": "DL264", "aircraft": "Airbus A330-900neo"},
+        {"airline": "United Airlines", "flight_num": "UA57", "aircraft": "Boeing 787-10"}
+    ],
+    "hawaii": [
+        {"airline": "Hawaiian Airlines", "flight_num": "HA51", "aircraft": "Airbus A330-200"},
+        {"airline": "United Airlines", "flight_num": "UA362", "aircraft": "Boeing 767-400ER"},
+        {"airline": "Delta Air Lines", "flight_num": "DL329", "aircraft": "Boeing 767-300ER"}
+    ],
+    "honolulu": [
+        {"airline": "Hawaiian Airlines", "flight_num": "HA51", "aircraft": "Airbus A330-200"},
+        {"airline": "United Airlines", "flight_num": "UA362", "aircraft": "Boeing 767-400ER"},
+        {"airline": "Delta Air Lines", "flight_num": "DL329", "aircraft": "Boeing 767-300ER"}
+    ],
+    "tokyo": [
+        {"airline": "Japan Airlines", "flight_num": "JL005", "aircraft": "Boeing 777-300ER"},
+        {"airline": "All Nippon Airways (ANA)", "flight_num": "NH109", "aircraft": "Boeing 787-9"},
+        {"airline": "United Airlines", "flight_num": "UA79", "aircraft": "Boeing 777-200ER"}
+    ],
+    "lisbon": [
+        {"airline": "TAP Air Portugal", "flight_num": "TP208", "aircraft": "Airbus A330-900neo"},
+        {"airline": "Delta Air Lines", "flight_num": "DL272", "aircraft": "Boeing 767-300ER"},
+        {"airline": "United Airlines", "flight_num": "UA64", "aircraft": "Boeing 787-10"}
+    ],
+    "london": [
+        {"airline": "British Airways", "flight_num": "BA112", "aircraft": "Boeing 777-200ER"},
+        {"airline": "Virgin Atlantic", "flight_num": "VS4", "aircraft": "Airbus A350-1000"},
+        {"airline": "Delta Air Lines", "flight_num": "DL2", "aircraft": "Boeing 767-400ER"}
+    ]
+}
+
+def get_flights_from_aviationstack(destination: str):
+    """Calls AviationStack API to retrieve real flights arriving at or related to the destination."""
+    key = os.getenv("AVIATIONSTACK_API_KEY")
+    if not key or len(key.strip()) < 5:
+        return None
+    
+    tracer = get_tracer()
+    with tracer.start_as_current_span("aviationstack_lookup") as span:
+        span.set_attribute(SPAN_KIND_KEY, SPAN_KIND_TOOL)
+        span.set_attribute("tool.name", "aviationstack_lookup")
+        span.set_attribute("input.value", json.dumps({"destination": destination}))
+        try:
+            import requests
+            url = "http://api.aviationstack.com/v1/flights"
+            params = {
+                "access_key": key,
+                "limit": 10
+            }
+            iata_map = {
+                "paris": "CDG",
+                "london": "LHR",
+                "tokyo": "NRT",
+                "lisbon": "LIS",
+                "hawaii": "HNL",
+                "honolulu": "HNL"
+            }
+            dest_lower = destination.lower().strip()
+            arr_iata = None
+            for k, v in iata_map.items():
+                if k in dest_lower:
+                    arr_iata = v
+                    break
+            
+            if arr_iata:
+                params["arr_iata"] = arr_iata
+                
+            response = requests.get(url, params=params, timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                flights_data = data.get("data", [])
+                if flights_data:
+                    span.set_attribute("output.value", json.dumps(flights_data[:5]))
+                    return flights_data
+        except Exception as e:
+            print(f"--> Warning: AviationStack API lookup failed: {e}")
+            span.record_exception(e)
+    return None
+
 def calculate_haversine_distance(lat1, lon1, lat2, lon2):
     """Calculates the great-circle distance between two points on the Earth's surface in kilometers."""
     import math
@@ -146,27 +265,35 @@ def calculate_haversine_distance(lat1, lon1, lat2, lon2):
     return distance
 
 def run_flight_lookup(destination):
-    """Performs flight lookup, using Google Places API coordinates to calculate great-circle flight distance from NYC."""
+    """Performs flight lookup, using Google Geocoding/Places API coordinates to calculate great-circle flight distance from NYC,
+    and AviationStack API for real-time flight details.
+    """
     tracer = get_tracer()
     with tracer.start_as_current_span("flight_lookup_tool") as span:
         span.set_attribute(SPAN_KIND_KEY, SPAN_KIND_TOOL)
         span.set_attribute("tool.name", "flight_lookup_tool")
-        span.set_attribute("tool.description", "Lookup eco-efficient and standard flight options for a destination")
+        span.set_attribute("tool.description", "Lookup eco-efficient and standard flight options for a destination using Geocoding and AviationStack")
         span.set_attribute("input.value", json.dumps({"destination": destination}))
         
         # Default starting point: NYC
         nyc_lat, nyc_lng = 40.7128, -74.0060
         distance_km = None
         
-        # Try to resolve destination coordinates using Google Places API
-        coords = get_coordinates_from_places(destination)
+        # 1. Resolve coordinates using Google Geocoding API first, then Google Places API
+        coords = get_coordinates_from_geocoding(destination)
         if coords:
             dest_lat, dest_lng = coords
             distance_km = calculate_haversine_distance(nyc_lat, nyc_lng, dest_lat, dest_lng)
-            print(f"--> Google Places API resolved '{destination}' coordinates: {coords}. Great-Circle distance from NYC: {distance_km:.1f} km")
+            print(f"--> Google Geocoding API resolved '{destination}' coordinates: {coords}. Great-Circle distance from NYC: {distance_km:.1f} km")
+        else:
+            coords = get_coordinates_from_places(destination)
+            if coords:
+                dest_lat, dest_lng = coords
+                distance_km = calculate_haversine_distance(nyc_lat, nyc_lng, dest_lat, dest_lng)
+                print(f"--> Google Places API resolved '{destination}' coordinates: {coords}. Great-Circle distance from NYC: {distance_km:.1f} km")
             
         if distance_km is None:
-            # Fallback to hash-based distance estimate if no key is configured
+            # Fallback to hash-based distance estimate if no keys are configured
             hash_val = sum(ord(c) for c in destination) % 5 + 1
             distance_km = hash_val * 1000.0
             print(f"--> Using hash-based fallback distance for '{destination}': {distance_km} km")
@@ -200,24 +327,88 @@ def run_flight_lookup(destination):
         # Approximate price based on distance
         base_price = 150.0 + (distance_km * 0.05)
         
+        # 2. Retrieve real flight details from AviationStack or high-quality fallback
+        real_flights = get_flights_from_aviationstack(destination)
+        
+        # Default/Fallback flight carriers
+        carrier_eco = "GreenJet Airways"
+        carrier_bal = "EcoLink Airlines"
+        carrier_std = "Legacy Trans-Continental Airlines"
+        flight_no_eco = "GJ380"
+        flight_no_bal = "EL502"
+        flight_no_std = "LT112"
+        aircraft_eco = aircraft
+        aircraft_bal = aircraft
+        aircraft_std = aircraft
+        
+        # Check fallback database first for high quality match
+        dest_lower = destination.lower()
+        matched_fallback = None
+        for k, v in REAL_FLIGHTS_FALLBACK.items():
+            if k in dest_lower:
+                matched_fallback = v
+                break
+                
+        if real_flights and len(real_flights) >= 1:
+            try:
+                # Map from live AviationStack data
+                carrier_std = real_flights[0].get("airline", {}).get("name") or carrier_std
+                flight_no_std = f"{real_flights[0].get('airline', {}).get('iata') or 'LT'}{real_flights[0].get('flight', {}).get('number') or '112'}"
+                if real_flights[0].get("aircraft", {}).get("iata"):
+                    aircraft_std = real_flights[0].get("aircraft", {}).get("iata")
+                
+                if len(real_flights) >= 2:
+                    carrier_bal = real_flights[1].get("airline", {}).get("name") or carrier_bal
+                    flight_no_bal = f"{real_flights[1].get('airline', {}).get('iata') or 'EL'}{real_flights[1].get('flight', {}).get('number') or '502'}"
+                    if real_flights[1].get("aircraft", {}).get("iata"):
+                        aircraft_bal = real_flights[1].get("aircraft", {}).get("iata")
+                else:
+                    carrier_bal = f"{carrier_std} (Eco-Blend)"
+                    flight_no_bal = f"{flight_no_std}-B"
+                    
+                if len(real_flights) >= 3:
+                    carrier_eco = real_flights[2].get("airline", {}).get("name") or carrier_eco
+                    flight_no_eco = f"{real_flights[2].get('airline', {}).get('iata') or 'GJ'}{real_flights[2].get('flight', {}).get('number') or '380'}"
+                    if real_flights[2].get("aircraft", {}).get("iata"):
+                        aircraft_eco = real_flights[2].get("aircraft", {}).get("iata")
+                else:
+                    carrier_eco = f"{carrier_std} (Eco-Premium)"
+                    flight_no_eco = f"{flight_no_std}-E"
+            except Exception as e:
+                print(f"--> Warning: AviationStack mapping error: {e}")
+                
+        elif matched_fallback:
+            # Map from high quality local database
+            carrier_eco = f"{matched_fallback[0]['airline']} (SAF Eco-Flyer)"
+            flight_no_eco = matched_fallback[0]["flight_num"]
+            aircraft_eco = matched_fallback[0]["aircraft"]
+            
+            carrier_bal = f"{matched_fallback[1]['airline']} (Hybrid Blend)"
+            flight_no_bal = matched_fallback[1]["flight_num"]
+            aircraft_bal = matched_fallback[1]["aircraft"]
+            
+            carrier_std = matched_fallback[2]["airline"]
+            flight_no_std = matched_fallback[2]["flight_num"]
+            aircraft_std = matched_fallback[2]["aircraft"]
+            
         flights = {
             "eco": {
-                "carrier": f"GreenJet Airways ({aircraft} - Sustainable Aviation Fuel)",
+                "carrier": f"{carrier_eco} (Flight {flight_no_eco} - SAF)",
                 "co2_kg": eco_co2,
                 "price_usd": round(base_price * 1.15, 2),  # SAF flight is slightly premium
-                "description": f"{category} flight ({distance_km:.1f} km) on {aircraft}. Utilizes 50% Sustainable Aviation Fuel (SAF) blend, reducing carbon footprint by 55%."
+                "description": f"{category} flight ({distance_km:.1f} km) on {aircraft_eco} with {carrier_eco}. Utilizes 50% Sustainable Aviation Fuel (SAF) blend, reducing carbon footprint by 55%."
             },
             "balanced": {
-                "carrier": f"EcoLink Airlines ({aircraft} - 30% SAF Blend)",
+                "carrier": f"{carrier_bal} (Flight {flight_no_bal} - Eco-Blend)",
                 "co2_kg": round(std_co2 * 0.67, 1),
                 "price_usd": round(base_price * 1.07, 2),
-                "description": f"{category} flight ({distance_km:.1f} km) on {aircraft}. Uses a 30% Sustainable Aviation Fuel (SAF) blend, reducing carbon footprint by 33%."
+                "description": f"{category} flight ({distance_km:.1f} km) on {aircraft_bal} with {carrier_bal}. Uses a 30% Sustainable Aviation Fuel (SAF) blend, reducing carbon footprint by 33%."
             },
             "standard": {
-                "carrier": f"Legacy Trans-Continental Airlines ({aircraft})",
+                "carrier": f"{carrier_std} (Flight {flight_no_std})",
                 "co2_kg": std_co2,
                 "price_usd": round(base_price, 2),
-                "description": f"{category} flight ({distance_km:.1f} km) on {aircraft}. Standard direct economy flight using standard kerosene jet fuel."
+                "description": f"{category} flight ({distance_km:.1f} km) on {aircraft_std} with {carrier_std}. Standard direct economy flight using conventional kerosene jet fuel."
             }
         }
         
@@ -427,15 +618,14 @@ def generate_packages_with_gemini(query, destination, days, flights, stays, tran
             from google.genai import types
             
             client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-            # OLD: model='gemini-2.5-flash-lite',  # Rate limited to 15K tokens/min
+            # Using gemini-2.5-flash (standard, fast, robust)
             response = client.models.generate_content(
-                model='gemini-2.5-flash-lite',  # Rate limited to 15K tokens/min
+                model='gemini-2.5-flash',
                 contents=[system_prompt, "\n\n", user_prompt],
                 config=types.GenerateContentConfig(
                     temperature=0.2,
-                    max_output_tokens=2000,
+                    max_output_tokens=4000,
                     response_mime_type="application/json",
-                    response_schema=PackageSummary,
                 ),
             )
             
@@ -979,7 +1169,7 @@ def fact_check_and_correct_packages(data: dict, package_context: dict = None) ->
         return data
 
 
-def generate_response_with_gemini(query: str, history=None, package_context=None) -> dict | None:
+def generate_response_with_gemini(query: str, history=None, package_context=None, live_api_context=None) -> dict | None:
     tracer = get_tracer()
     with tracer.start_as_current_span("gemini_agent_responder") as span:
         span.set_attribute(SPAN_KIND_KEY, SPAN_KIND_LLM)
@@ -1115,7 +1305,7 @@ List datasets, emission factors, and assumptions used.
 ---
 
 CONVERSATIONAL RULES:
-- Never give vague, short, or one-line answers — always write detailed, lengthy, end-to-end paragraphs that explain cost breakdowns, travel components, and package items.
+- If package_summary is provided (i.e. you are generating travel packages), keep the "reply" concise (1-2 short paragraphs introducing the packages and their savings) since the details are in the package_summary. If package_summary is null, write detailed, lengthy, end-to-end paragraphs that explain cost breakdowns, travel components, and calculations.
 - Always show your workings, formulas, and calculations explicitly and transparently.
 - Do not repeat answers or reuse identical wording across sections. Actually answer what the user is asking.
 - If the user gives incomplete information, state your assumptions clearly and explain how missing information affects results.
@@ -1133,6 +1323,16 @@ You must ALWAYS respond with a JSON object. The JSON object must contain the fol
        "destination": "Name of destination",
        "days": number_of_days,
        "green_choice": {{
+           "flight": {{"carrier": "...", "co2_kg": ..., "price_usd": ..., "details": "..."}},
+           "stay": {{"hotel": "...", "co2_kg": ..., "price_usd": ..., "details": "..."}},
+           "transit": {{"vehicle": "...", "co2_kg": ..., "price_usd": ..., "details": "..."}},
+           "total_co2": ...,
+           "total_price_usd": ...,
+           "points_earned": ...,
+           "summary": "...",
+           "co2_savings": ...
+       }},
+       "balanced_choice": {{
            "flight": {{"carrier": "...", "co2_kg": ..., "price_usd": ..., "details": "..."}},
            "stay": {{"hotel": "...", "co2_kg": ..., "price_usd": ..., "details": "..."}},
            "transit": {{"vehicle": "...", "co2_kg": ..., "price_usd": ..., "details": "..."}},
@@ -1169,8 +1369,14 @@ CALCULATION RULES FOR TRAVEL PACKAGES:
         if package_context:
             context_str = f"\nCURRENT ACTIVE TRAVEL PACKAGE CONTEXT:\n{json.dumps(package_context, indent=2)}\n"
             
+        # Add live API context
+        live_str = ""
+        if live_api_context:
+            live_str = f"\n{live_api_context}\n"
+            
         user_prompt = f"""
 {context_str}
+{live_str}
 {history_str}
 
 USER MESSAGE: "{query}"
@@ -1184,20 +1390,26 @@ Construct your JSON response now.
             from google.genai import types
             
             client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-            # OLD: model='gemini-2.5-flash-lite',  # Rate limited to 15K tokens/min
+            # Using gemini-2.5-flash (standard, fast, robust)
             response = client.models.generate_content(
-                model='gemini-2.5-flash-lite',  # Rate limited to 15K tokens/min
+                model='gemini-2.5-flash',
                 contents=[system_prompt, "\n\n", user_prompt],
                 config=types.GenerateContentConfig(
                     temperature=0.2,
-                    max_output_tokens=2000,
+                    max_output_tokens=4000,
                     response_mime_type="application/json",
-                    response_schema=AgentResponse,
                 ),
             )
             
             result_content = response.text
             span.set_attribute("output.value", result_content)
+            
+            # Debug: Write raw Gemini response to a file
+            try:
+                with open("debug_gemini_raw.json", "w", encoding="utf-8") as debug_file:
+                    debug_file.write(result_content)
+            except Exception as debug_err:
+                print(f"--> Debug write failed: {debug_err}")
             
             try:
                 data = json.loads(result_content)
@@ -1264,7 +1476,42 @@ def execute_agent_loop(query: str, history=None, package_context=None):
         # 1. Attempt to use Gemini agent for a dynamic response (covers all queries)
         gemini_key = os.getenv("GEMINI_API_KEY")
         if gemini_key and len(gemini_key.strip()) > 10:
-            response = generate_response_with_gemini(query, history, package_context)
+            live_api_context = None
+            if is_travel_request(query):
+                try:
+                    destination, days = parse_query_regex(query)
+                    # Resolve coordinates
+                    lat_lng = get_coordinates_from_geocoding(destination)
+                    if not lat_lng:
+                        lat_lng = get_coordinates_from_places(destination)
+                    
+                    # Fetch flights, stays, transit
+                    flights = run_flight_lookup(destination)
+                    stays = run_stay_lookup(destination, days)
+                    transits = run_transit_lookup(destination, days)
+                    
+                    # Compile context
+                    live_api_context = f"""
+LIVE REAL-TIME SEARCH RESULTS:
+- Destination: {destination}
+- Distance & Coordinates: Location resolved at {lat_lng or 'Unknown'}.
+- Flight Options (AviationStack & Haversine):
+  * Eco Premium: {json.dumps(flights.get('eco', {}))}
+  * Eco Balanced: {json.dumps(flights.get('balanced', {}))}
+  * Standard Baseline: {json.dumps(flights.get('standard', {}))}
+- Accommodation Options (Google Places API):
+  * Eco Premium: {json.dumps(stays.get('eco', {}))}
+  * Eco Balanced: {json.dumps(stays.get('balanced', {}))}
+  * Standard Baseline: {json.dumps(stays.get('standard', {}))}
+- Transit Options (Google Directions API):
+  * Eco Premium: {json.dumps(transits.get('eco', {}))}
+  * Eco Balanced: {json.dumps(transits.get('balanced', {}))}
+  * Standard Baseline: {json.dumps(transits.get('standard', {}))}
+"""
+                except Exception as e:
+                    print(f"--> Warning: Could not pre-fetch live search context: {e}")
+            
+            response = generate_response_with_gemini(query, history, package_context, live_api_context)
             if response:
                 span.set_attribute("output.value", response.get("reply", ""))
                 return response
