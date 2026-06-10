@@ -384,7 +384,7 @@ function App() {
       <div className="sidebar">
         <div className="logo-container">
           <Leaf className="logo-icon" size={26} />
-          <span>Green Route</span>
+          <span>GreenRoute</span>
         </div>
         <ul className="nav-links">
           <li>
