@@ -297,31 +297,7 @@ function App() {
     }
   };
 
-  const downloadReportPdf = async () => {
-    if (!currentPackages) return;
-    try {
-      showToast('Generating formal carbon comparison PDF report...');
-      const res = await fetch(`${API_URL}/api/generate-report`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(currentPackages)
-      });
-      if (!res.ok) throw new Error('PDF generation failed');
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `carbon_trip_report_${currentPackages.destination.toLowerCase().replace(/\\s+/g, '_')}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-      showToast('PDF report downloaded successfully!');
-    } catch (err) {
-      console.error(err);
-      showToast('Failed to generate PDF report.');
-    }
-  };
+
 
   const confirmBooking = async (txId) => {
     try {
@@ -779,6 +755,49 @@ function App() {
                           <div><strong>Top activity:</strong> {message.details.high_emission_activities[0]?.description || 'N/A'}</div>
                         </div>
                       )}
+                      {message.packageSummary && (
+                        <div className="chat-package-summary" style={{
+                          marginTop: '0.75rem',
+                          padding: '0.75rem',
+                          borderRadius: '6px',
+                          background: 'rgba(16, 185, 129, 0.1)',
+                          border: '1px solid rgba(16, 185, 129, 0.2)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '0.5rem'
+                        }}>
+                          <div style={{ fontWeight: 600, color: 'var(--primary)' }}>
+                            ✈️ Trip to {message.packageSummary.destination} ({message.packageSummary.days} Days)
+                          </div>
+                          <div style={{ fontSize: '0.85rem' }}>
+                            Green package saves <strong>{message.packageSummary.green_choice.co2_savings} kg CO₂</strong> and earns <strong>+{message.packageSummary.green_choice.points_earned} PTS</strong>.
+                          </div>
+                          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCurrentPackages(message.packageSummary);
+                              }}
+                              className="package-action-btn secondary"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.4rem',
+                                padding: '0.4rem 0.8rem',
+                                fontSize: '0.8rem',
+                                borderRadius: '4px',
+                                border: '1px solid var(--border)',
+                                background: 'rgba(255, 255, 255, 0.05)',
+                                color: 'var(--text)',
+                                fontWeight: 500,
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Compare Options
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -963,41 +982,9 @@ function App() {
                     </p>
                   </div>
                   
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                    <button 
-                      onClick={downloadReportPdf} 
-                      className="package-action-btn primary" 
-                      style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '0.5rem', 
-                        background: 'linear-gradient(135deg, var(--accent) 0%, var(--primary) 100%)', 
-                        color: 'var(--background)',
-                        padding: '0.6rem 1.2rem',
-                        borderRadius: '6px',
-                        border: 'none',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)',
-                        transition: 'transform 0.2s, box-shadow 0.2s'
-                      }}
-                      onMouseOver={(e) => {
-                        e.currentTarget.style.transform = 'translateY(-2px)';
-                        e.currentTarget.style.boxShadow = '0 6px 16px rgba(16, 185, 129, 0.35)';
-                      }}
-                      onMouseOut={(e) => {
-                        e.currentTarget.style.transform = 'translateY(0)';
-                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.2)';
-                      }}
-                    >
-                      <Download size={16} />
-                      Download Audit PDF
-                    </button>
-                    
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Points Reward</div>
-                      <div style={{ color: 'var(--accent)', fontFamily: 'var(--font-heading)', fontSize: '1.8rem', fontWeight: 800 }}>+{currentPackages.green_choice.points_earned} PTS</div>
-                    </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Points Reward</div>
+                    <div style={{ color: 'var(--accent)', fontFamily: 'var(--font-heading)', fontSize: '1.8rem', fontWeight: 800 }}>+{currentPackages.green_choice.points_earned} PTS</div>
                   </div>
                 </div>
 

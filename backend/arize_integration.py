@@ -1,8 +1,13 @@
 import os
 import sys
 import socket
+from opentelemetry import trace
+
+# Create a global tracer variable
+tracer = None
 
 def is_port_in_use(port: int) -> bool:
+    """Checks if a local TCP port is already active."""
     # Check IPv4
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -19,7 +24,7 @@ def is_port_in_use(port: int) -> bool:
 
     return False
 
-# Force stdout/stderr to UTF-8 on Windows to avoid UnicodeEncodeErrors when printing emojis
+# Force stdout/stderr to UTF-8 on Windows to avoid UnicodeEncodeErrors
 if sys.platform.startswith("win"):
     try:
         sys.stdout.reconfigure(encoding='utf-8')
@@ -30,15 +35,14 @@ if sys.platform.startswith("win"):
 try:
     import phoenix as px
     from phoenix.otel import register
-except Exception:
+except ImportError:
     px = None
     register = None
-from opentelemetry import trace
-
-# Create a global tracer variable
-tracer = None
 
 def init_arize():
+    """Initializes Arize Phoenix Observability.
+    Optimized for both local development and Google Cloud Run.
+    """
     global tracer
     if tracer is not None:
         return tracer
@@ -46,26 +50,40 @@ def init_arize():
     print("Initializing Arize Phoenix Observability...")
     
     if px is None or register is None:
-        print("--> Phoenix telemetry unavailable on this Python environment. Using fallback tracer.")
+        print("--> Arize Phoenix telemetry packages unavailable in this environment. Using fallback tracer.")
         tracer = trace.get_tracer("carbon-agent")
         return tracer
 
-    # Start Phoenix locally on port 6006 (or read from environment)
+    # Check if running on Google Cloud Run (or other containerized envs)
+    is_cloud_run = os.getenv("K_SERVICE") is not None
+    
     port = int(os.getenv("PHOENIX_PORT", 6006))
     grpc_port = int(os.getenv("PHOENIX_GRPC_PORT", 4317))
     
-    if is_port_in_use(port) or is_port_in_use(grpc_port):
-        print(f"--> Phoenix port {port} or gRPC port {grpc_port} is already in use. Skipping px.launch_app to avoid port binding crash.")
+    # Run Phoenix UI server locally ONLY when running locally (not in Cloud Run)
+    if is_cloud_run:
+        print("--> Detected Google Cloud Run environment. Skipping local Phoenix UI startup.")
     else:
-        try:
-            session = px.launch_app(port=port)
-            print(f"--> Arize Phoenix UI is available at: {session.url}")
-        except Exception as e:
-            print(f"--> Note: Phoenix app might already be running: {e}")
+        if is_port_in_use(port) or is_port_in_use(grpc_port):
+            print(f"--> Phoenix port {port} or gRPC port {grpc_port} is already in use. Assuming Phoenix is already running.")
+        else:
+            try:
+                session = px.launch_app(port=port)
+                print(f"--> Arize Phoenix UI is available at: {session.url}")
+            except Exception as e:
+                print(f"--> Note: Phoenix app might already be running: {e}")
     
-    # Register the tracer provider to export OTel spans to our local Phoenix collector
-    # Default local collector endpoint is http://localhost:6006/v1/traces
-    collector_endpoint = f"http://127.0.0.1:{port}/v1/traces"
+    # Configure the exporter endpoint
+    # In Cloud Run, traces should be sent to a hosted/central Phoenix collector URL configured in the env,
+    # otherwise we default to the local UI instance endpoint.
+    collector_endpoint = os.getenv("PHOENIX_COLLECTOR_ENDPOINT")
+    if not collector_endpoint:
+        if is_cloud_run:
+            print("--> Warning: PHOENIX_COLLECTOR_ENDPOINT is not set in Cloud Run. Traces will not be exported.")
+            tracer = trace.get_tracer("carbon-agent")
+            return tracer
+        else:
+            collector_endpoint = f"http://127.0.0.1:{port}/v1/traces"
     
     try:
         tracer_provider = register(
@@ -74,18 +92,15 @@ def init_arize():
         )
         print(f"--> Registered OpenTelemetry Tracer Provider pointing to {collector_endpoint}")
     except Exception as e:
-        print(f"--> Failed to register OTel tracer provider: {e}")
+        print(f"--> Failed to register OTel tracer provider pointing to {collector_endpoint}: {e}")
         tracer = trace.get_tracer("carbon-agent")
         return tracer
 
-    # Instrument Google GenAI if available
+    # Auto-instrument Google GenAI SDK (Gemini calls)
     try:
         from openinference.instrumentation.google_genai import GoogleGenAIInstrumentor
-        if GoogleGenAIInstrumentor().is_instrumented_by(tracer_provider):
-            print("--> Google GenAI already instrumented")
-        else:
-            GoogleGenAIInstrumentor().instrument(tracer_provider=tracer_provider)
-            print("--> Auto-instrumented Google GenAI with OpenInference")
+        GoogleGenAIInstrumentor().instrument(tracer_provider=tracer_provider)
+        print("--> Auto-instrumented Google GenAI with OpenInference")
     except Exception as e:
         print(f"--> Could not auto-instrument Google GenAI: {e}")
 
@@ -93,6 +108,7 @@ def init_arize():
     return tracer
 
 def get_tracer():
+    """Returns the active tracer, initializing it if necessary."""
     global tracer
     if tracer is None:
         return init_arize()

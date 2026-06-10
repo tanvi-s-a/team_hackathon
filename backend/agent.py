@@ -5,6 +5,53 @@ import datetime
 from opentelemetry import trace
 from backend.arize_integration import get_tracer
 from backend import database
+from pydantic import BaseModel
+from typing import Optional
+
+class FlightChoice(BaseModel):
+    carrier: str
+    co2_kg: float
+    price_usd: float
+    details: str
+
+class StayChoice(BaseModel):
+    hotel: str
+    co2_kg: float
+    price_usd: float
+    details: str
+
+class TransitChoice(BaseModel):
+    vehicle: str
+    co2_kg: float
+    price_usd: float
+    details: str
+
+class GreenChoice(BaseModel):
+    flight: FlightChoice
+    stay: StayChoice
+    transit: TransitChoice
+    total_co2: float
+    total_price_usd: float
+    points_earned: int
+    summary: str
+    co2_savings: float
+
+class StandardChoice(BaseModel):
+    flight: FlightChoice
+    stay: StayChoice
+    transit: TransitChoice
+    total_co2: float
+    total_price_usd: float
+
+class PackageSummary(BaseModel):
+    destination: str
+    days: int
+    green_choice: GreenChoice
+    standard_choice: StandardChoice
+
+class AgentResponse(BaseModel):
+    reply: str
+    package_summary: Optional[PackageSummary] = None
 
 # Define span kinds for OpenInference
 SPAN_KIND_KEY = "openinference.span.kind"
@@ -22,14 +69,14 @@ def is_query_related(query: str) -> bool:
     related_pattern = (
         r'\b(trip|travel|vacation|package|flight|hotel|stay|destination|booking|book|'
         r'resort|lodging|room|night|carrier|airline|vehicle|car|rental|drive|road|transit|'
-        r'afford|cost|price|budget|compare|saving|savings|carbon|emissions|points|report|'
-        r'pattern|trend|insight|recommend|spending|analysis|co2|co2e|green|eco|saf|'
+        r'afford|cost|price|budget|compare|saving|savings|carbon|emissions|points|report|pattern|trend|insight|recommend|spending|analysis|co2|co2e|green|eco|saf|'
         r'hybrid|prius|tesla|ev|electric|sustainable|sustainability|offset|offsets|'
         r'reforestation|sequestration|mossy|soil|dollar|dollars|usd|cheap|limit|allowance|'
         r'hi|hello|hey|greetings|welcome|morning|afternoon|evening|help|can you|who are you|'
         r'what is this|capabilities|options|features|objective|account|user|profile|usage|'
         r'emissions|history|spend|spent|transaction|transactions|detail|details|info|information|'
-        r'name|identity|purpose|creator|who made you|about you)\b'
+        r'name|identity|purpose|creator|who made you|about you|'
+        r'visit|visiting|go|going|plan|planning|day|days|week|weeks|pdf|download|print|generate)\b'
     )
     return bool(re.search(related_pattern, query, re.IGNORECASE))
 
@@ -140,7 +187,8 @@ def generate_packages_with_gemini(query, destination, days, flights, stays, tran
     
     with tracer.start_as_current_span("gemini_package_generator") as span:
         span.set_attribute(SPAN_KIND_KEY, SPAN_KIND_LLM)
-        span.set_attribute("llm.model_name", "gemini-2.5-flash")
+        # span.set_attribute("llm.model_name", "gemini-2.5-flash-lite")  # OLD: Higher rate limit
+        span.set_attribute("llm.model_name", "gemini-1.5-flash")  # NEW: 1M daily tokens, no rate limits
         
         system_prompt = (
             "You are a Carbon-Conscious AI Travel Planner. You take trip options (flights, stays, car rentals) "
@@ -198,13 +246,15 @@ def generate_packages_with_gemini(query, destination, days, flights, stays, tran
             from google.genai import types
             
             client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+            # OLD: model='gemini-2.5-flash-lite',  # Rate limited to 15K tokens/min
             response = client.models.generate_content(
-                model='gemini-2.5-flash',
+                model='gemini-2.5-flash-lite',  # Rate limited to 15K tokens/min
                 contents=[system_prompt, "\n\n", user_prompt],
                 config=types.GenerateContentConfig(
                     temperature=0.2,
                     max_output_tokens=2000,
                     response_mime_type="application/json",
+                    response_schema=PackageSummary,
                 ),
             )
             
@@ -217,90 +267,6 @@ def generate_packages_with_gemini(query, destination, days, flights, stays, tran
                 print(f"Error parsing Gemini response: {e}")
                 return None
         except Exception as e:
-            print(f"Gemini LLM error: {e}")
-            return None
-
-def generate_packages_with_claude(query, destination, days, flights, stays, transits):
-    tracer = get_tracer()
-    
-    with tracer.start_as_current_span("claude_package_generator") as span:
-        span.set_attribute(SPAN_KIND_KEY, SPAN_KIND_LLM)
-        span.set_attribute("llm.model_name", "claude-3-sonnet")
-        
-        system_prompt = (
-            "You are a Carbon-Conscious AI Travel Planner. You take trip options (flights, stays, car rentals) "
-            "and create a green eco-efficient package and a standard baseline comparison package. "
-            "Output your response strictly as a JSON object containing the packages."
-        )
-        
-        user_prompt = f"""
-        User wants a {days}-day trip to {destination}. Query: "{query}"
-        
-        Available Flight options:
-        {json.dumps(flights, indent=2)}
-        
-        Available Stay options:
-        {json.dumps(stays, indent=2)}
-        
-        Available Transit options:
-        {json.dumps(transits, indent=2)}
-        
-        Please synthesize this into two packages:
-        1. "green_choice": Uses eco flights, eco hotels, and eco vehicles. Calculate the total CO2, total price, and write a summary justifying why it's carbon efficient and how many points the user earns (usually 20 points per 100kg of CO2 saved compared to standard package).
-        2. "standard_choice": Uses standard flights, standard hotels, and standard vehicles.
-        
-        Calculate CO2 savings as: Standard Total CO2 - Eco Total CO2.
-        Points earned should be: round(savings_kg * 0.2) + 50 (bonus for choosing green).
-        
-        Output format should be EXACTLY this JSON:
-        {{
-            "destination": "{destination}",
-            "days": {days},
-            "green_choice": {{
-                "flight": {{"carrier": "...", "co2_kg": ..., "price_usd": ..., "details": "..."}},
-                "stay": {{"hotel": "...", "co2_kg": ..., "price_usd": ..., "details": "..."}},
-                "transit": {{"vehicle": "...", "co2_kg": ..., "price_usd": ..., "details": "..."}},
-                "total_co2": ...,
-                "total_price_usd": ...,
-                "points_earned": ...,
-                "summary": "...",
-                "co2_savings": ...
-            }},
-            "standard_choice": {{
-                "flight": {{"carrier": "...", "co2_kg": ..., "price_usd": ..., "details": "..."}},
-                "stay": {{"hotel": "...", "co2_kg": ..., "price_usd": ..., "details": "..."}},
-                "transit": {{"vehicle": "...", "co2_kg": ..., "price_usd": ..., "details": "..."}},
-                "total_co2": ...,
-                "total_price_usd": ...
-            }}
-        }}
-        """
-        
-        span.set_attribute("input.value", user_prompt)
-        
-        try:
-            from anthropic import Anthropic
-            client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-            
-            response = client.messages.create(
-                model="claude-3-sonnet-20240229",
-                max_tokens=2000,
-                messages=[
-                    {"role": "user", "content": user_prompt}
-                ],
-                system=system_prompt
-            )
-            
-            result_content = response.content[0].text
-            span.set_attribute("output.value", result_content)
-            
-            try:
-                return json.loads(result_content)
-            except Exception as e:
-                print(f"Error parsing Claude response: {e}")
-                return None
-        except Exception as e:
-            print(f"Claude LLM error: {e}")
             return None
 
 def generate_packages_real_llm(query, destination, days, flights, stays, transits):
@@ -406,7 +372,7 @@ def generate_packages_simulated(destination, days, flights, stays, transits):
         return package
 
 def is_followup_question(query: str) -> bool:
-    return bool(re.search(r'\b(afford|cost|price|budget|compare|saving|savings|carbon|emissions|points|report|pattern|trend|insight|recommend)\b', query, re.IGNORECASE))
+    return bool(re.search(r'\b(afford|cost|price|budget|compare|saving|savings|carbon|emissions|points|report|pattern|trend|insight|recommend|better|eco|choice|standard|package|option|details|pdf|download|print|generate|why|how|explain)\b', query, re.IGNORECASE))
 
 
 def is_travel_request(query: str) -> bool:
@@ -666,7 +632,8 @@ def generate_response_with_gemini(query: str, history=None, package_context=None
     tracer = get_tracer()
     with tracer.start_as_current_span("gemini_agent_responder") as span:
         span.set_attribute(SPAN_KIND_KEY, SPAN_KIND_LLM)
-        span.set_attribute("llm.model_name", "gemini-2.5-flash")
+        # span.set_attribute("llm.model_name", "gemini-2.5-flash-lite")  # OLD: Higher rate limit
+        span.set_attribute("llm.model_name", "gemini-1.5-flash")  # NEW: 1M daily tokens, no rate limits
         
         # Load user account summary context dynamically
         summary = database.get_summary()
@@ -865,13 +832,15 @@ Construct your JSON response now.
             from google.genai import types
             
             client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+            # OLD: model='gemini-2.5-flash-lite',  # Rate limited to 15K tokens/min
             response = client.models.generate_content(
-                model='gemini-2.5-flash',
+                model='gemini-2.5-flash-lite',  # Rate limited to 15K tokens/min
                 contents=[system_prompt, "\n\n", user_prompt],
                 config=types.GenerateContentConfig(
                     temperature=0.2,
                     max_output_tokens=2000,
                     response_mime_type="application/json",
+                    response_schema=AgentResponse,
                 ),
             )
             
@@ -934,6 +903,11 @@ def execute_agent_loop(query: str, history=None, package_context=None):
             reply = UNRELATED_RESPONSE
             span.set_attribute("output.value", reply)
             return {"reply": reply, "package_summary": None}
+
+        # Clear package context if the query is a new travel request or not a follow-up question
+        if package_context:
+            if is_travel_request(query) or not is_followup_question(query):
+                package_context = None
 
         # 1. Attempt to use Gemini agent for a dynamic response (covers all queries)
         gemini_key = os.getenv("GEMINI_API_KEY")
