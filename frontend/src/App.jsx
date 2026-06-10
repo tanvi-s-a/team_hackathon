@@ -166,14 +166,15 @@ function App() {
     }
   };
 
-  const runAgent = async (e) => {
-    e.preventDefault();
-    if (!prompt.trim()) return;
+  const runAgent = async (e, customPrompt = null, overridePackageContext = null) => {
+    if (e) e.preventDefault();
+    const promptText = customPrompt || prompt;
+    if (!promptText.trim()) return;
 
     const userMessage = {
       id: `user-${Date.now()}`,
       sender: 'user',
-      text: prompt.trim(),
+      text: promptText.trim(),
       timestamp: new Date().toISOString(),
       type: 'text'
     };
@@ -189,7 +190,9 @@ function App() {
     appendMessage(pendingAgentMessage);
 
     setLoading(true);
-    setCurrentPackages(null);
+    if (!customPrompt) {
+      setCurrentPackages(null);
+    }
     setThinkingSteps([]);
     setArizeTraces([]); // Reset traces
 
@@ -240,10 +243,11 @@ function App() {
     }
 
     try {
+      const contextToUse = overridePackageContext || currentPackages;
       const res = await fetch(`${API_URL}/api/agent`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: prompt.trim(), history: messages, package_context: currentPackages })
+        body: JSON.stringify({ query: promptText.trim(), history: messages, package_context: contextToUse })
       });
       if (!res.ok) throw new Error('Agent request failed');
       const data = await res.json();
@@ -261,7 +265,9 @@ function App() {
       if (data.package_summary) {
         setCurrentPackages(data.package_summary);
       }
-      setPrompt('');
+      if (!customPrompt) {
+        setPrompt('');
+      }
       setArizeTraces((prev) => prev.map((t) => (t.id === 'span-1' ? { ...t, status: 'completed', duration: 3200 } : t)));
       showToast('Agent responded successfully! Check Arize Phoenix for detailed traces.');
     } catch (err) {
@@ -269,14 +275,15 @@ function App() {
       setArizeTraces((prev) => prev.map((t) => (t.id === 'span-1' ? { ...t, status: 'failed', duration: 0 } : t)));
       setMessages((prev) => prev.map((msg) => (msg.id === 'pending-agent' ? {
         ...msg,
-        text: 'I encountered an error while preparing the report. Please try again.',
+        text: 'I encountered an error planning your carbon budget or looking up destinations. Please check the backend console.',
         type: 'text'
       } : msg)));
-      showToast('Error executing agent loop. Make sure backend is running.');
+      showToast('Error communicating with the Eco-Agent.');
     } finally {
       setLoading(false);
     }
   };
+
 
   const bookTrip = async (packageType) => {
     if (!currentPackages) return;
@@ -1222,6 +1229,7 @@ function App() {
                               type="button"
                               onClick={() => {
                                 setCurrentPackages(message.packageSummary);
+                                runAgent(null, "Compare the travel options in detail, including cost breakdown, carbon emissions, and calculations.", message.packageSummary);
                               }}
                               className="package-action-btn secondary"
                               style={{

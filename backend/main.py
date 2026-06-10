@@ -133,6 +133,23 @@ def create_comparison_chart(green_co2, std_co2, green_price, std_price, bal_co2=
     
     return d
 
+def safe_xml_escape(text: str) -> str:
+    if not isinstance(text, str):
+        return str(text) if text is not None else ""
+    import re
+    # Replace any & not followed by amp;, lt;, gt;, quot;, apos; or #digits;
+    text = re.sub(r'&(?!(amp|lt|gt|quot|apos|#\d+);)', '&amp;', text)
+    # Replace < and > except for permitted reportlab tags
+    text = text.replace('<', '&lt;').replace('>', '&gt;')
+    # Restore allowed tags
+    allowed_tags = ['b', 'i', 'strong', 'br', 'br/']
+    for tag in allowed_tags:
+        text = text.replace(f'&lt;{tag}&gt;', f'<{tag}>')
+        text = text.replace(f'&lt;/{tag}&gt;', f'</{tag}>')
+        text = text.replace(f'&lt;{tag.upper()}&gt;', f'<{tag}>')
+        text = text.replace(f'&lt;/{tag.upper()}&gt;', f'</{tag}>')
+    return text
+
 def generate_pdf_report(data: Dict[str, Any]) -> bytes:
     import io
     import datetime
@@ -240,7 +257,7 @@ def generate_pdf_report(data: Dict[str, Any]) -> bytes:
     has_package = data.get("destination") is not None
     
     if has_package:
-        dest = data.get("destination")
+        dest = safe_xml_escape(data.get("destination", ""))
         days = data.get("days", 3)
         story.append(Paragraph(f"Active Comparison: Proposal for {dest} ({days} Days)", h2_style))
         
@@ -256,17 +273,17 @@ def generate_pdf_report(data: Dict[str, Any]) -> bytes:
         bal_stay = data.get("bal_stay") or {}
         bal_transit = data.get("bal_transit") or {}
         
-        flight_green_text = f"<b>{green_flight.get('carrier', 'N/A')}</b><br/>{green_flight.get('details', '')}<br/>Price: ${green_flight.get('price_usd', 0):.2f} | CO₂: {green_flight.get('co2_kg', 0)} kg"
-        flight_bal_text = f"<b>{bal_flight.get('carrier', 'N/A')}</b><br/>{bal_flight.get('details', '')}<br/>Price: ${bal_flight.get('price_usd', 0):.2f} | CO₂: {bal_flight.get('co2_kg', 0)} kg"
-        flight_std_text = f"<b>{std_flight.get('carrier', 'N/A')}</b><br/>{std_flight.get('details', '')}<br/>Price: ${std_flight.get('price_usd', 0):.2f} | CO₂: {std_flight.get('co2_kg', 0)} kg"
+        flight_green_text = f"<b>{safe_xml_escape(green_flight.get('carrier', 'N/A'))}</b><br/>{safe_xml_escape(green_flight.get('details', ''))}<br/>Price: ${green_flight.get('price_usd', 0):.2f} | CO₂: {green_flight.get('co2_kg', 0)} kg"
+        flight_bal_text = f"<b>{safe_xml_escape(bal_flight.get('carrier', 'N/A'))}</b><br/>{safe_xml_escape(bal_flight.get('details', ''))}<br/>Price: ${bal_flight.get('price_usd', 0):.2f} | CO₂: {bal_flight.get('co2_kg', 0)} kg"
+        flight_std_text = f"<b>{safe_xml_escape(std_flight.get('carrier', 'N/A'))}</b><br/>{safe_xml_escape(std_flight.get('details', ''))}<br/>Price: ${std_flight.get('price_usd', 0):.2f} | CO₂: {std_flight.get('co2_kg', 0)} kg"
 
-        stay_green_text = f"<b>{green_stay.get('hotel', 'N/A')}</b><br/>{green_stay.get('details', '')}<br/>Price: ${green_stay.get('price_usd', 0):.2f} | CO₂: {green_stay.get('co2_kg', 0)} kg"
-        stay_bal_text = f"<b>{bal_stay.get('hotel', 'N/A')}</b><br/>{bal_stay.get('details', '')}<br/>Price: ${bal_stay.get('price_usd', 0):.2f} | CO₂: {bal_stay.get('co2_kg', 0)} kg"
-        stay_std_text = f"<b>{std_stay.get('hotel', 'N/A')}</b><br/>{std_stay.get('details', '')}<br/>Price: ${std_stay.get('price_usd', 0):.2f} | CO₂: {std_stay.get('co2_kg', 0)} kg"
+        stay_green_text = f"<b>{safe_xml_escape(green_stay.get('hotel', 'N/A'))}</b><br/>{safe_xml_escape(green_stay.get('details', ''))}<br/>Price: ${green_stay.get('price_usd', 0):.2f} | CO₂: {green_stay.get('co2_kg', 0)} kg"
+        stay_bal_text = f"<b>{safe_xml_escape(bal_stay.get('hotel', 'N/A'))}</b><br/>{safe_xml_escape(bal_stay.get('details', ''))}<br/>Price: ${bal_stay.get('price_usd', 0):.2f} | CO₂: {bal_stay.get('co2_kg', 0)} kg"
+        stay_std_text = f"<b>{safe_xml_escape(std_stay.get('hotel', 'N/A'))}</b><br/>{safe_xml_escape(std_stay.get('details', ''))}<br/>Price: ${std_stay.get('price_usd', 0):.2f} | CO₂: {std_stay.get('co2_kg', 0)} kg"
 
-        transit_green_text = f"<b>{green_transit.get('vehicle', 'N/A')}</b><br/>{green_transit.get('details', '')}<br/>Price: ${green_transit.get('price_usd', 0):.2f} | CO₂: {green_transit.get('co2_kg', 0)} kg"
-        transit_bal_text = f"<b>{bal_transit.get('vehicle', 'N/A')}</b><br/>{bal_transit.get('details', '')}<br/>Price: ${bal_transit.get('price_usd', 0):.2f} | CO₂: {bal_transit.get('co2_kg', 0)} kg"
-        transit_std_text = f"<b>{std_transit.get('vehicle', 'N/A')}</b><br/>{std_transit.get('details', '')}<br/>Price: ${std_transit.get('price_usd', 0):.2f} | CO₂: {std_transit.get('co2_kg', 0)} kg"
+        transit_green_text = f"<b>{safe_xml_escape(green_transit.get('vehicle', 'N/A'))}</b><br/>{safe_xml_escape(green_transit.get('details', ''))}<br/>Price: ${green_transit.get('price_usd', 0):.2f} | CO₂: {green_transit.get('co2_kg', 0)} kg"
+        transit_bal_text = f"<b>{safe_xml_escape(bal_transit.get('vehicle', 'N/A'))}</b><br/>{safe_xml_escape(bal_transit.get('details', ''))}<br/>Price: ${bal_transit.get('price_usd', 0):.2f} | CO₂: {bal_transit.get('co2_kg', 0)} kg"
+        transit_std_text = f"<b>{safe_xml_escape(std_transit.get('vehicle', 'N/A'))}</b><br/>{safe_xml_escape(std_transit.get('details', ''))}<br/>Price: ${std_transit.get('price_usd', 0):.2f} | CO₂: {std_transit.get('co2_kg', 0)} kg"
 
         total_green_text = f"Cost: ${data.get('green_total_price', 0):.2f}<br/>CO₂: {data.get('green_total_co2', 0)} kg<br/>Savings: {data.get('co2_savings', 0)} kg<br/>Points: +{data.get('points_earned', 0)} PTS"
         total_bal_text = f"Cost: ${data.get('bal_total_price', 0):.2f}<br/>CO₂: {data.get('bal_total_co2', 0)} kg<br/>Savings: {data.get('bal_co2_savings', 0)} kg<br/>Points: +{data.get('bal_points_earned', 0)} PTS"
