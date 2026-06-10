@@ -200,9 +200,9 @@ User Query
     ↓
 [1] Is it a travel request? (regex matching)
     ├─ YES → Extract destination & days
-    │   ├─ run_flight_lookup()
-    │   ├─ run_stay_lookup()
-    │   ├─ run_transit_lookup()
+    │   ├─ run_flight_lookup() (Resolves destination location via Google Places API & calculates NYC flight distance)
+    │   ├─ run_stay_lookup() (Queries Google Places API to search for real lodging options)
+    │   ├─ run_transit_lookup() (Calls Google Maps Directions API to fetch route distance)
     │   └─ generate_packages_with_gemini()
     │       └─ Returns: { green_choice, standard_choice }
     └─ NO → Continue to [2]

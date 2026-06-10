@@ -20,7 +20,9 @@ import {
   ArrowRight,
   Clock,
   Gauge,
-  Download
+  Download,
+  MapPin,
+  Compass
 } from 'lucide-react';
 
 const API_URL = 'http://127.0.0.1:8000';
@@ -1110,6 +1112,91 @@ function App() {
                       <button className="package-action-btn secondary" onClick={() => bookTrip('standard')}>
                         Book Standard
                       </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Google Maps & Google Travel Integration Panels */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', marginTop: '1rem' }}>
+                  {/* Google Maps Embed Card */}
+                  <div className="glass-card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontFamily: 'var(--font-heading)', fontSize: '1.1rem', fontWeight: 700, color: 'var(--primary)', margin: 0 }}>
+                      <MapPin size={18} />
+                      Google Maps - Explore {currentPackages.destination}
+                    </h4>
+                    <div style={{ width: '100%', height: '250px', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--card-border)' }}>
+                      <iframe
+                        width="100%"
+                        height="100%"
+                        style={{ border: 0 }}
+                        loading="lazy"
+                        allowFullScreen
+                        referrerPolicy="no-referrer-when-downgrade"
+                        src={`https://maps.google.com/maps?q=${encodeURIComponent(currentPackages.destination)}&t=&z=11&ie=UTF8&iwloc=&output=embed`}
+                      ></iframe>
+                    </div>
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(currentPackages.destination)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="package-action-btn secondary"
+                      style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', textDecoration: 'none', padding: '0.6rem', textAlign: 'center', width: '100%', fontSize: '0.85rem' }}
+                    >
+                      <ExternalLink size={14} />
+                      Open in Google Maps
+                    </a>
+                  </div>
+
+                  {/* Google Travel Helper Card */}
+                  <div className="glass-card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontFamily: 'var(--font-heading)', fontSize: '1.1rem', fontWeight: 700, color: 'var(--accent)', margin: 0 }}>
+                      <Compass size={18} />
+                      Google Travel Integration
+                    </h4>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.4, margin: 0 }}>
+                      Plan coordinates, book flights, manage hotels, and discover local spots for <strong>{currentPackages.destination}</strong> directly in Google Travel:
+                    </p>
+                    
+                    {/* Google Travel Links */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.25rem' }}>
+                      <a
+                        href={`https://www.google.com/travel/flights?q=Flights+to+${encodeURIComponent(currentPackages.destination)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--card-border)', borderRadius: '8px', textDecoration: 'none', color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: 600 }}
+                      >
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <Plane size={16} color="var(--primary)" />
+                          Google Flights
+                        </span>
+                        <ExternalLink size={14} color="var(--text-muted)" />
+                      </a>
+                      
+                      <a
+                        href={`https://www.google.com/travel/hotels?q=Hotels+in+${encodeURIComponent(currentPackages.destination)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--card-border)', borderRadius: '8px', textDecoration: 'none', color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: 600 }}
+                      >
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <Hotel size={16} color="var(--accent)" />
+                          Google Hotels
+                        </span>
+                        <ExternalLink size={14} color="var(--text-muted)" />
+                      </a>
+                      
+                      <a
+                        href={`https://www.google.com/travel/explore?q=${encodeURIComponent(currentPackages.destination)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--card-border)', borderRadius: '8px', textDecoration: 'none', color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: 600 }}
+                      >
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <Compass size={16} color="#a855f7" />
+                          Explore Destination on Google Travel
+                        </span>
+                        <ExternalLink size={14} color="var(--text-muted)" />
+                      </a>
                     </div>
                   </div>
                 </div>

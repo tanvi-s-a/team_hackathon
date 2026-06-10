@@ -96,7 +96,46 @@ def parse_query_regex(query):
         
     return destination, days
 
+def get_coordinates_from_places(destination: str):
+    """Calls Google Places API to resolve destination coordinates (latitude/longitude)."""
+    key = os.getenv("GOOGLE_MAPS_API_KEY")
+    if not key or len(key.strip()) < 5:
+        return None
+    try:
+        import requests
+        url = "https://maps.googleapis.com/maps/api/place/textsearch/json"
+        params = {"query": destination, "key": key}
+        response = requests.get(url, params=params, timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            results = data.get("results", [])
+            if results:
+                location = results[0].get("geometry", {}).get("location", {})
+                lat = location.get("lat")
+                lng = location.get("lng")
+                if lat is not None and lng is not None:
+                    return lat, lng
+    except Exception as e:
+        print(f"--> Warning: Places API coordinate lookup failed: {e}")
+    return None
+
+def calculate_haversine_distance(lat1, lon1, lat2, lon2):
+    """Calculates the great-circle distance between two points on the Earth's surface in kilometers."""
+    import math
+    # Radius of the Earth in km
+    R = 6371.0
+    
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    
+    a = math.sin(dlat / 2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    
+    distance = R * c
+    return distance
+
 def run_flight_lookup(destination):
+    """Performs flight lookup, using Google Places API coordinates to calculate great-circle flight distance from NYC."""
     tracer = get_tracer()
     with tracer.start_as_current_span("flight_lookup_tool") as span:
         span.set_attribute(SPAN_KIND_KEY, SPAN_KIND_TOOL)
@@ -104,23 +143,64 @@ def run_flight_lookup(destination):
         span.set_attribute("tool.description", "Lookup eco-efficient and standard flight options for a destination")
         span.set_attribute("input.value", json.dumps({"destination": destination}))
         
-        # Base carbon calculations (rough estimates based on distance)
-        # We can seed different values based on destination
-        hash_val = sum(ord(c) for c in destination) % 5 + 1
-        base_co2 = hash_val * 150.0  # kg CO2
+        # Default starting point: NYC
+        nyc_lat, nyc_lng = 40.7128, -74.0060
+        distance_km = None
+        
+        # Try to resolve destination coordinates using Google Places API
+        coords = get_coordinates_from_places(destination)
+        if coords:
+            dest_lat, dest_lng = coords
+            distance_km = calculate_haversine_distance(nyc_lat, nyc_lng, dest_lat, dest_lng)
+            print(f"--> Google Places API resolved '{destination}' coordinates: {coords}. Great-Circle distance from NYC: {distance_km:.1f} km")
+            
+        if distance_km is None:
+            # Fallback to hash-based distance estimate if no key is configured
+            hash_val = sum(ord(c) for c in destination) % 5 + 1
+            distance_km = hash_val * 1000.0
+            print(f"--> Using hash-based fallback distance for '{destination}': {distance_km} km")
+            
+        # Determine haul category and standard emissions factors (same as system prompt)
+        if distance_km < 1500:
+            category = "Short-Haul"
+            std_factor = 0.20
+            eco_factor = 0.09
+            aircraft = "Boeing 737"
+        elif distance_km < 4000:
+            category = "Medium-Haul"
+            std_factor = 0.15
+            eco_factor = 0.0675
+            aircraft = "Airbus A320neo"
+        elif distance_km < 10000:
+            category = "Long-Haul"
+            std_factor = 0.12
+            eco_factor = 0.054
+            aircraft = "Boeing 787"
+        else:
+            category = "Ultra Long-Haul"
+            std_factor = 0.11
+            eco_factor = 0.0495
+            aircraft = "Boeing 777"
+            
+        # Standard flight calculations: Distance * factor * cabin multiplier (1.0) * RF multiplier (1.9)
+        std_co2 = round(distance_km * std_factor * 1.9, 1)
+        eco_co2 = round(distance_km * eco_factor * 1.9, 1)
+        
+        # Approximate price based on distance
+        base_price = 150.0 + (distance_km * 0.05)
         
         flights = {
             "eco": {
-                "carrier": "GreenJet Airways (Sustainable Aviation Fuel - SAF)",
-                "co2_kg": round(base_co2 * 0.45, 1),
-                "price_usd": round(300 + (hash_val * 80), 2),
-                "description": "Utilizes 50% Sustainable Aviation Fuel (SAF) blend and optimized flight pathing, reducing carbon footprint by 55%."
+                "carrier": f"GreenJet Airways ({aircraft} - Sustainable Aviation Fuel)",
+                "co2_kg": eco_co2,
+                "price_usd": round(base_price * 1.15, 2),  # SAF flight is slightly premium
+                "description": f"{category} flight ({distance_km:.1f} km) on {aircraft}. Utilizes 50% Sustainable Aviation Fuel (SAF) blend, reducing carbon footprint by 55%."
             },
             "standard": {
-                "carrier": "Legacy Trans-Continental Airlines",
-                "co2_kg": round(base_co2, 1),
-                "price_usd": round(250 + (hash_val * 70), 2),
-                "description": "Standard direct economy flight using standard kerosene jet fuel."
+                "carrier": f"Legacy Trans-Continental Airlines ({aircraft})",
+                "co2_kg": std_co2,
+                "price_usd": round(base_price, 2),
+                "description": f"{category} flight ({distance_km:.1f} km) on {aircraft}. Standard direct economy flight using standard kerosene jet fuel."
             }
         }
         
@@ -128,6 +208,7 @@ def run_flight_lookup(destination):
         return flights
 
 def run_stay_lookup(destination, days):
+    """Performs hotel stay lookup, using Google Places API to search for real lodging in the destination."""
     tracer = get_tracer()
     with tracer.start_as_current_span("stay_lookup_tool") as span:
         span.set_attribute(SPAN_KIND_KEY, SPAN_KIND_TOOL)
@@ -135,21 +216,44 @@ def run_stay_lookup(destination, days):
         span.set_attribute("tool.description", "Lookup eco-friendly hotels and standard stays")
         span.set_attribute("input.value", json.dumps({"destination": destination, "days": days}))
         
+        key = os.getenv("GOOGLE_MAPS_API_KEY")
+        eco_hotel_name = "EcoNest Certified Retreat"
+        std_hotel_name = "Grand Plaza Palms Resort"
+        
+        if key and len(key.strip()) > 5:
+            try:
+                import requests
+                url = "https://maps.googleapis.com/maps/api/place/textsearch/json"
+                params = {"query": f"hotels in {destination}", "key": key}
+                response = requests.get(url, params=params, timeout=5)
+                if response.status_code == 200:
+                    data = response.json()
+                    results = data.get("results", [])
+                    if len(results) >= 2:
+                        eco_hotel_name = f"{results[0].get('name')} (Eco-Certified)"
+                        std_hotel_name = results[1].get("name")
+                        print(f"--> Google Places API resolved hotels: '{eco_hotel_name}' and '{std_hotel_name}'")
+                    elif len(results) == 1:
+                        std_hotel_name = results[0].get("name")
+                        eco_hotel_name = f"{std_hotel_name} (Green Option)"
+            except Exception as e:
+                print(f"--> Warning: Places API hotel lookup failed: {e}")
+                
         eco_rate = 12.0  # kg CO2 / night
         std_rate = 45.0  # kg CO2 / night
         
         stays = {
             "eco": {
-                "hotel": "EcoNest Certified Retreat",
+                "hotel": eco_hotel_name,
                 "co2_kg": round(eco_rate * days, 1),
-                "price_usd": round(150 * days, 2),
-                "description": "LEED Gold certified eco-resort. Runs on 100% solar power, practices strict zero-waste dining, and uses greywater systems."
+                "price_usd": round(150.0 * days, 2),
+                "description": f"LEED Gold certified property in {destination}. Runs on 100% solar power, practices strict zero-waste dining, and uses greywater systems."
             },
             "standard": {
-                "hotel": "Grand Plaza Palms Resort",
+                "hotel": std_hotel_name,
                 "co2_kg": round(std_rate * days, 1),
-                "price_usd": round(130 * days, 2),
-                "description": "Full-service conventional luxury resort."
+                "price_usd": round(130.0 * days, 2),
+                "description": f"Conventional upscale full-service resort in {destination} with legacy HVAC."
             }
         }
         
@@ -157,6 +261,7 @@ def run_stay_lookup(destination, days):
         return stays
 
 def run_transit_lookup(destination, days):
+    """Performs transit vehicle lookup, using Google Maps Directions API to fetch route distance from airport to city center."""
     tracer = get_tracer()
     with tracer.start_as_current_span("transit_lookup_tool") as span:
         span.set_attribute(SPAN_KIND_KEY, SPAN_KIND_TOOL)
@@ -164,18 +269,54 @@ def run_transit_lookup(destination, days):
         span.set_attribute("tool.description", "Lookup green transit and standard vehicle rentals")
         span.set_attribute("input.value", json.dumps({"destination": destination, "days": days}))
         
+        key = os.getenv("GOOGLE_MAPS_API_KEY")
+        # Default sightseeing driving distance of 50 km per day
+        distance_km = 50.0 * days
+        local_route_info = ""
+        
+        if key and len(key.strip()) > 5:
+            try:
+                import requests
+                url = "https://maps.googleapis.com/maps/api/directions/json"
+                params = {
+                    "origin": f"{destination} Airport",
+                    "destination": destination,
+                    "key": key
+                }
+                response = requests.get(url, params=params, timeout=5)
+                if response.status_code == 200:
+                    data = response.json()
+                    routes = data.get("routes", [])
+                    if routes:
+                        legs = routes[0].get("legs", [])
+                        if legs:
+                            route_distance_text = legs[0].get("distance", {}).get("text", "")
+                            route_distance_val = legs[0].get("distance", {}).get("value", 0) / 1000.0  # meters to km
+                            # Total transit distance = 2 * (airport transfer) + daily sightseeing of 40 km
+                            distance_km = round((2 * route_distance_val) + (40.0 * days), 1)
+                            local_route_info = f" (Includes airport transfer: {route_distance_text} each way)"
+                            print(f"--> Google Maps Routes API calculated local transit distance: {distance_km} km{local_route_info}")
+            except Exception as e:
+                print(f"--> Warning: Directions API route lookup failed: {e}")
+                
+        # Emissions factors:
+        # Standard Large SUV: 282 g CO2e / km -> 0.282 kg CO2e / km
+        # Eco Tesla Model 3 (Solar charged): 0.0 kg CO2e / km
+        std_co2 = round(distance_km * 0.282, 1)
+        eco_co2 = 0.0  # 100% solar grid
+        
         transits = {
             "eco": {
                 "vehicle": "Tesla Model 3 (EV Rental)",
-                "co2_kg": 0.0,
-                "price_usd": round(65 * days, 2),
-                "description": "All-electric vehicle rental. Powered entirely by the island's geothermal and solar charging network."
+                "co2_kg": eco_co2,
+                "price_usd": round(65.0 * days, 2),
+                "description": f"All-electric Tesla Model 3 for {distance_km} km{local_route_info}. Powered entirely by the local solar charging network (0 tailpipe emissions)."
             },
             "standard": {
                 "vehicle": "Full-Size Gas SUV Rental",
-                "co2_kg": round(42.5 * days, 1),
-                "price_usd": round(50 * days, 2),
-                "description": "Standard gasoline internal combustion engine SUV."
+                "co2_kg": std_co2,
+                "price_usd": round(50.0 * days, 2),
+                "description": f"Standard gasoline internal combustion engine SUV for {distance_km} km{local_route_info} (282 g CO2e/km factor)."
             }
         }
         
