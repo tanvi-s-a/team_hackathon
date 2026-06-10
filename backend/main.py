@@ -430,10 +430,10 @@ def generate_pdf_report(data: Dict[str, Any]) -> bytes:
     
     span_table_data = [
         [Paragraph("Span Name", header_cell_style), Paragraph("Span Kind", header_cell_style), Paragraph("Duration", header_cell_style), Paragraph("Status", header_cell_style), Paragraph("Traced Tool / Model", header_cell_style)],
-        [Paragraph("agent_reasoning_loop", table_cell_bold), Paragraph("CHAIN", table_cell_style), Paragraph("3,200 ms", table_cell_style), Paragraph("SUCCESS", table_cell_style), Paragraph("gemini-2.5-flash-lite", table_cell_style)],
+        [Paragraph("agent_reasoning_loop", table_cell_bold), Paragraph("CHAIN", table_cell_style), Paragraph("3,200 ms", table_cell_style), Paragraph("SUCCESS", table_cell_style), Paragraph("gemini-2.5-flash", table_cell_style)],
         [Paragraph("flight_lookup_tool", table_cell_bold), Paragraph("TOOL", table_cell_style), Paragraph("450 ms", table_cell_style), Paragraph("SUCCESS", table_cell_style), Paragraph("Google Places & Routes API", table_cell_style)],
         [Paragraph("stay_lookup_tool", table_cell_bold), Paragraph("TOOL", table_cell_style), Paragraph("380 ms", table_cell_style), Paragraph("SUCCESS", table_cell_style), Paragraph("Google Places API", table_cell_style)],
-        [Paragraph("package_generator", table_cell_bold), Paragraph("LLM", table_cell_style), Paragraph("500 ms", table_cell_style), Paragraph("SUCCESS", table_cell_style), Paragraph("gemini-2.5-flash-lite", table_cell_style)]
+        [Paragraph("package_generator", table_cell_bold), Paragraph("LLM", table_cell_style), Paragraph("500 ms", table_cell_style), Paragraph("SUCCESS", table_cell_style), Paragraph("gemini-2.5-flash", table_cell_style)]
     ]
     
     span_table = Table(span_table_data, colWidths=[1.8*inch, 1.1*inch, 1.0*inch, 1.0*inch, 2.1*inch])
