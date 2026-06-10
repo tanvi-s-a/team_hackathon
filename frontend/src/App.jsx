@@ -45,6 +45,9 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [thinkingSteps, setThinkingSteps] = useState([]);
   const [currentPackages, setCurrentPackages] = useState(null);
+  const [travelLocation, setTravelLocation] = useState('Hawaii');
+  const [searchQuery, setSearchQuery] = useState('Hawaii');
+  const [activeSubTab, setActiveSubTab] = useState('maps');
   const [messages, setMessages] = useState([
     {
       id: 1,
@@ -64,6 +67,13 @@ function App() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (currentPackages && currentPackages.destination) {
+      setTravelLocation(currentPackages.destination);
+      setSearchQuery(currentPackages.destination);
+    }
+  }, [currentPackages]);
 
   const showToast = (message) => {
     setToastMessage(message);
@@ -338,6 +348,13 @@ function App() {
     }
   };
 
+  const handleLoadLocation = () => {
+    if (searchQuery.trim()) {
+      setTravelLocation(searchQuery.trim());
+      showToast(`Google Travel loaded for ${searchQuery.trim()}!`);
+    }
+  };
+
   // Render budget ratio and progress fill color
   const budgetRatio = summary.current_usage / summary.budget_limit;
   const progressPercent = Math.min(100, budgetRatio * 100);
@@ -407,6 +424,15 @@ function App() {
           </li>
           <li>
             <a 
+              className={`nav-item ${activeTab === 'google-travel' ? 'active' : ''}`}
+              onClick={() => setActiveTab('google-travel')}
+            >
+              <Compass className="nav-item-icon" size={18} />
+              <span>Google Travel Hub</span>
+            </a>
+          </li>
+          <li>
+            <a 
               className={`nav-item ${activeTab === 'transactions' ? 'active' : ''}`}
               onClick={() => setActiveTab('transactions')}
             >
@@ -437,11 +463,13 @@ function App() {
             <h1 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '2rem', marginBottom: '0.25rem' }}>
               {activeTab === 'overview' && "Carbon Portfolio Overview"}
               {activeTab === 'agent' && "Book Eco Travel Packages"}
+              {activeTab === 'google-travel' && "Google Travel Hub"}
               {activeTab === 'transactions' && "Carbon Account Statement"}
             </h1>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
               {activeTab === 'overview' && "Track your budget, points ledger, and carbon trajectory."}
               {activeTab === 'agent' && "Consult the AI Agent to draft and book carbon-efficient travel itineraries."}
+              {activeTab === 'google-travel' && "Explore Google Maps, Flights, Hotels, and Explore embeds."}
               {activeTab === 'transactions' && "Review past expenditures, pending bookings, and offsets."}
             </p>
           </div>
@@ -1116,92 +1144,312 @@ function App() {
                   </div>
                 </div>
 
-                {/* Google Maps & Google Travel Integration Panels */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', marginTop: '1rem' }}>
-                  {/* Google Maps Embed Card */}
-                  <div className="glass-card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontFamily: 'var(--font-heading)', fontSize: '1.1rem', fontWeight: 700, color: 'var(--primary)', margin: 0 }}>
-                      <MapPin size={18} />
-                      Google Maps - Explore {currentPackages.destination}
-                    </h4>
-                    <div style={{ width: '100%', height: '250px', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--card-border)' }}>
-                      <iframe
-                        width="100%"
-                        height="100%"
-                        style={{ border: 0 }}
-                        loading="lazy"
-                        allowFullScreen
-                        referrerPolicy="no-referrer-when-downgrade"
-                        src={`https://maps.google.com/maps?q=${encodeURIComponent(currentPackages.destination)}&t=&z=11&ie=UTF8&iwloc=&output=embed`}
-                      ></iframe>
-                    </div>
-                    <a
-                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(currentPackages.destination)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="package-action-btn secondary"
-                      style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', textDecoration: 'none', padding: '0.6rem', textAlign: 'center', width: '100%', fontSize: '0.85rem' }}
-                    >
-                      <ExternalLink size={14} />
-                      Open in Google Maps
-                    </a>
-                  </div>
 
-                  {/* Google Travel Helper Card */}
-                  <div className="glass-card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontFamily: 'var(--font-heading)', fontSize: '1.1rem', fontWeight: 700, color: 'var(--accent)', margin: 0 }}>
-                      <Compass size={18} />
-                      Google Travel Integration
-                    </h4>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.4, margin: 0 }}>
-                      Plan coordinates, book flights, manage hotels, and discover local spots for <strong>{currentPackages.destination}</strong> directly in Google Travel:
-                    </p>
-                    
-                    {/* Google Travel Links */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.25rem' }}>
-                      <a
-                        href={`https://www.google.com/travel/flights?q=Flights+to+${encodeURIComponent(currentPackages.destination)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--card-border)', borderRadius: '8px', textDecoration: 'none', color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: 600 }}
-                      >
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <Plane size={16} color="var(--primary)" />
-                          Google Flights
-                        </span>
-                        <ExternalLink size={14} color="var(--text-muted)" />
-                      </a>
-                      
-                      <a
-                        href={`https://www.google.com/travel/hotels?q=Hotels+in+${encodeURIComponent(currentPackages.destination)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--card-border)', borderRadius: '8px', textDecoration: 'none', color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: 600 }}
-                      >
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <Hotel size={16} color="var(--accent)" />
-                          Google Hotels
-                        </span>
-                        <ExternalLink size={14} color="var(--text-muted)" />
-                      </a>
-                      
-                      <a
-                        href={`https://www.google.com/travel/explore?q=${encodeURIComponent(currentPackages.destination)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--card-border)', borderRadius: '8px', textDecoration: 'none', color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: 600 }}
-                      >
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <Compass size={16} color="#a855f7" />
-                          Explore Destination on Google Travel
-                        </span>
-                        <ExternalLink size={14} color="var(--text-muted)" />
-                      </a>
-                    </div>
-                  </div>
-                </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ==================== TAB: GOOGLE TRAVEL PLANNER ==================== */}
+        {activeTab === 'google-travel' && (
+          <div className="glass-card" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+            {/* Header / Search bar */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.5rem', borderBottom: '1px solid var(--card-border)', paddingBottom: '1.5rem' }}>
+              <div>
+                <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.4rem', fontWeight: 700, color: 'var(--primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Compass size={24} style={{ color: 'var(--primary)' }} />
+                  Google Travel Integration Hub
+                </h2>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '0.25rem' }}>
+                  Explore live flights, hotels, routes, and things to do for your destination.
+                </p>
+              </div>
+              
+              {/* Destination Search Box */}
+              <div style={{ display: 'flex', gap: '0.5rem', minWidth: '280px' }}>
+                <input
+                  type="text"
+                  placeholder="Enter destination (e.g. Paris, Tokyo)..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleLoadLocation();
+                    }
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '0.6rem 1rem',
+                    background: 'rgba(255, 255, 255, 0.03)',
+                    border: '1px solid var(--card-border)',
+                    borderRadius: '8px',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.9rem',
+                    outline: 'none'
+                  }}
+                />
+                <button
+                  className="package-action-btn primary"
+                  style={{ padding: '0.6rem 1.25rem', whiteSpace: 'nowrap', fontSize: '0.85rem' }}
+                  onClick={handleLoadLocation}
+                >
+                  Load Location
+                </button>
+              </div>
+            </div>
+
+            {/* Embedded Services Sub-Tabs */}
+            <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
+              <button
+                className={`package-action-btn ${activeSubTab === 'maps' ? 'primary' : 'secondary'}`}
+                style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1.25rem' }}
+                onClick={() => setActiveSubTab('maps')}
+              >
+                <MapPin size={16} />
+                Google Maps
+              </button>
+              <button
+                className={`package-action-btn ${activeSubTab === 'flights' ? 'primary' : 'secondary'}`}
+                style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1.25rem' }}
+                onClick={() => setActiveSubTab('flights')}
+              >
+                <Plane size={16} />
+                Google Flights
+              </button>
+              <button
+                className={`package-action-btn ${activeSubTab === 'hotels' ? 'primary' : 'secondary'}`}
+                style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1.25rem' }}
+                onClick={() => setActiveSubTab('hotels')}
+              >
+                <Hotel size={16} />
+                Google Hotels
+              </button>
+              <button
+                className={`package-action-btn ${activeSubTab === 'explore' ? 'primary' : 'secondary'}`}
+                style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1.25rem' }}
+                onClick={() => setActiveSubTab('explore')}
+              >
+                <Compass size={16} />
+                Google Travel Explore
+              </button>
+            </div>
+
+            {/* Embed Header / Link Card */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '1rem 1.5rem', borderRadius: '12px', border: '1px solid var(--card-border)' }}>
+              <div>
+                <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontFamily: 'var(--font-heading)', fontSize: '1.1rem', fontWeight: 700, margin: 0 }}>
+                  {activeSubTab === 'maps' && <><MapPin size={18} color="var(--primary)" /> Google Maps Embed</>}
+                  {activeSubTab === 'flights' && <><Plane size={18} color="var(--secondary)" /> Google Flights Embed</>}
+                  {activeSubTab === 'hotels' && <><Hotel size={18} color="var(--accent)" /> Google Hotels Embed</>}
+                  {activeSubTab === 'explore' && <><Compass size={18} color="#a855f7" /> Google Travel Explore Embed</>}
+                </h3>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '0.25rem' }}>
+                  {activeSubTab === 'maps' && `Interactive map, routes, and points of interest for ${travelLocation}.`}
+                  {activeSubTab === 'flights' && `Real-time search results for flights to ${travelLocation}.`}
+                  {activeSubTab === 'hotels' && `Stays, resorts, and vacation rentals in ${travelLocation}.`}
+                  {activeSubTab === 'explore' && `Popular travel guides, itineraries, and things to do in ${travelLocation}.`}
+                </p>
+              </div>
+              <a
+                href={
+                  activeSubTab === 'maps' ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(travelLocation)}` :
+                  activeSubTab === 'flights' ? `https://www.google.com/travel/flights?q=Flights+to+${encodeURIComponent(travelLocation)}` :
+                  activeSubTab === 'hotels' ? `https://www.google.com/travel/hotels?q=Hotels+in+${encodeURIComponent(travelLocation)}` :
+                  `https://www.google.com/travel/explore?q=${encodeURIComponent(travelLocation)}`
+                }
+                target="_blank"
+                rel="noopener noreferrer"
+                className="package-action-btn secondary"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', textDecoration: 'none', padding: '0.5rem 1rem', fontSize: '0.8rem' }}
+              >
+                <ExternalLink size={14} />
+                Open full page
+              </a>
+            </div>
+
+            {/* Embedded Viewer & Carbon-Efficiency Guides */}
+            <div style={{ width: '100%', height: '600px', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--card-border)', background: '#111827' }}>
+              {activeSubTab === 'maps' && (
+                <iframe
+                  width="100%"
+                  height="100%"
+                  style={{ border: 0, background: '#111827' }}
+                  loading="lazy"
+                  allowFullScreen
+                  src={`https://maps.google.com/maps?q=${encodeURIComponent(travelLocation)}&t=&z=12&ie=UTF8&iwloc=&output=embed`}
+                ></iframe>
+              )}
+              {activeSubTab === 'flights' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '2rem', height: '100%', overflowY: 'auto', background: '#0f172a' }}>
+                  <div style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--secondary)', fontWeight: 700, fontSize: '1.2rem', marginBottom: '0.25rem' }}>
+                      <Plane size={22} />
+                      Google Flights — Find Carbon-Efficient Flights
+                    </div>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                      Google Flights calculates and displays CO₂ emission estimates next to all flight results. It factors in aircraft model, cabin class, seating configuration, and route efficiency.
+                    </p>
+                  </div>
+                  
+                  {/* How-to Card */}
+                  <div style={{ background: 'rgba(59,130,246,0.05)', border: '1px solid rgba(59,130,246,0.15)', borderRadius: '12px', padding: '1.25rem' }}>
+                    <h5 style={{ color: 'var(--secondary)', fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.5rem' }}>🌱 Choosing Low-Carbon Flights on Google Travel:</h5>
+                    <ul style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', paddingLeft: '1.2rem', lineHeight: '1.5' }}>
+                      <li><strong>Look for the Green Leaf Badge:</strong> Google highlights flights that emit less carbon than the median for your route.</li>
+                      <li><strong>Sort by Emissions:</strong> Use the "Sort by" dropdown and choose "Emissions" to see the greenest options first.</li>
+                      <li><strong>Examine Aircraft Efficiency:</strong> Modern twin-engine planes (like the Airbus A320neo, A350, or Boeing 787 Dreamliner) produce significantly lower per-passenger emissions.</li>
+                    </ul>
+                  </div>
+
+                  {/* Interactive Flight Simulation Panel */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Mock Route Emissions for {travelLocation}</div>
+                    
+                    {/* Flight 1: Eco Option */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', background: 'rgba(16,185,129,0.03)', border: '1px solid rgba(16,185,129,0.15)', borderRadius: '8px' }}>
+                      <div>
+                        <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>Direct Flight (Eco Option)</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.1rem' }}>Modern High-Efficiency Aircraft • Nonstop</div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', background: 'rgba(16,185,129,0.15)', color: '#10b981', padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700 }}>
+                          <Leaf size={10} />
+                          -24% Emissions
+                        </span>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.25rem', fontWeight: 600 }}>~320 kg CO₂</div>
+                      </div>
+                    </div>
+
+                    {/* Flight 2: Standard */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--card-border)', borderRadius: '8px' }}>
+                      <div>
+                        <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>Standard Option</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>Average Single-Aisle Jet • 1 Stop</div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <span style={{ display: 'inline-flex', background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)', padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>
+                          Average Emissions
+                        </span>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>~420 kg CO₂</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Call to Action Button */}
+                  <div style={{ marginTop: 'auto', paddingTop: '1rem' }}>
+                    <a
+                      href={`https://www.google.com/travel/flights?q=Flights+to+${encodeURIComponent(travelLocation)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="package-action-btn primary"
+                      style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', textDecoration: 'none', padding: '0.8rem 1.5rem', width: '100%', textAlign: 'center', fontWeight: 700, fontSize: '0.9rem', borderRadius: '8px', boxShadow: '0 4px 12px var(--primary-light)' }}
+                    >
+                      <Plane size={18} />
+                      Open Google Flights to Find Eco-Friendly Options
+                      <ExternalLink size={14} />
+                    </a>
+                  </div>
+                </div>
+              )}
+              {activeSubTab === 'hotels' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '2rem', height: '100%', overflowY: 'auto', background: '#0f172a' }}>
+                  <div style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--accent)', fontWeight: 700, fontSize: '1.2rem', marginBottom: '0.25rem' }}>
+                      <Hotel size={22} />
+                      Google Hotels — Find Eco-Certified Stays
+                    </div>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                      Google Hotels highlights properties that have been certified by recognized independent sustainability organizations for waste reduction, water conservation, and energy efficiency.
+                    </p>
+                  </div>
+
+                  {/* How-to Card */}
+                  <div style={{ background: 'rgba(251,191,36,0.05)', border: '1px solid rgba(251,191,36,0.15)', borderRadius: '12px', padding: '1.25rem' }}>
+                    <h5 style={{ color: 'var(--accent)', fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.5rem' }}>🌱 Finding Sustainable Lodging on Google Travel:</h5>
+                    <ul style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', paddingLeft: '1.2rem', lineHeight: '1.5' }}>
+                      <li><strong>Look for the 'Eco-certified' Tag:</strong> Certified properties will display an 'Eco-certified' label with a leaf icon in their overview card.</li>
+                      <li><strong>Review Sustainability Practices:</strong> Click on the hotel's 'About' section in Google Hotels to view their specific environmental audits (e.g. Green Key, EarthCheck, LEED).</li>
+                    </ul>
+                  </div>
+
+                  {/* Interactive Hotels Simulation Panel */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Eco-Stays in {travelLocation}</div>
+                    
+                    {/* Hotel 1: Eco */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', background: 'rgba(16,185,129,0.03)', border: '1px solid rgba(16,185,129,0.15)', borderRadius: '8px' }}>
+                      <div>
+                        <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>Green Oasis Lodge</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.1rem' }}>Solar Powered • Single-Use Plastic Free</div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', background: 'rgba(16,185,129,0.15)', color: '#10b981', padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700 }}>
+                          🌱 Eco-Certified
+                        </span>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.25rem', fontWeight: 600 }}>Water Saving • LEED Gold</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Call to Action Button */}
+                  <div style={{ marginTop: 'auto', paddingTop: '1rem' }}>
+                    <a
+                      href={`https://www.google.com/travel/hotels?q=Hotels+in+${encodeURIComponent(travelLocation)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="package-action-btn primary"
+                      style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', textDecoration: 'none', padding: '0.8rem 1.5rem', width: '100%', textAlign: 'center', fontWeight: 700, fontSize: '0.9rem', borderRadius: '8px', boxShadow: '0 4px 12px var(--primary-light)' }}
+                    >
+                      <Hotel size={18} />
+                      Find Eco-Certified Hotels on Google Travel
+                      <ExternalLink size={14} />
+                    </a>
+                  </div>
+                </div>
+              )}
+              {activeSubTab === 'explore' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '2rem', height: '100%', overflowY: 'auto', background: '#0f172a' }}>
+                  <div style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#a855f7', fontWeight: 700, fontSize: '1.2rem', marginBottom: '0.25rem' }}>
+                      <Compass size={22} />
+                      Google Travel Explore — Plan Local Excursions
+                    </div>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                      Discover local spots, walking tours, cycling routes, and public transit maps for your destination. Researching in advance helps you coordinate low-carbon transportation and support eco-tourism.
+                    </p>
+                  </div>
+
+                  {/* How-to Card */}
+                  <div style={{ background: 'rgba(168,85,247,0.05)', border: '1px solid rgba(168,85,247,0.15)', borderRadius: '12px', padding: '1.25rem' }}>
+                    <h5 style={{ color: '#a855f7', fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.5rem' }}>🚲 Sustainable Exploration Tips:</h5>
+                    <ul style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', paddingLeft: '1.2rem', lineHeight: '1.5' }}>
+                      <li><strong>Opt for Walking and Biking:</strong> Google Travel Explore lists walkable historic districts and parks. Use transit options to bypass car rentals.</li>
+                      <li><strong>Support Eco-Tourism:</strong> Visit local nature reserves and check out community-led tours that prioritize conservation.</li>
+                    </ul>
+                  </div>
+
+                  {/* Call to Action Button */}
+                  <div style={{ marginTop: 'auto', paddingTop: '1rem' }}>
+                    <a
+                      href={`https://www.google.com/travel/explore?q=${encodeURIComponent(travelLocation)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="package-action-btn primary"
+                      style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', textDecoration: 'none', padding: '0.8rem 1.5rem', width: '100%', textAlign: 'center', fontWeight: 700, fontSize: '0.9rem', borderRadius: '8px', boxShadow: '0 4px 12px var(--primary-light)' }}
+                    >
+                      <Compass size={18} />
+                      Launch Google Travel Explore for {travelLocation}
+                      <ExternalLink size={14} />
+                    </a>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: 'rgba(255,255,255,0.02)', borderRadius: '8px' }}>
+              <span>📍 Current active location: <strong>{travelLocation}</strong></span>
+              <span>💡 Tip: Plan a trip in the <strong>AI Eco-Agent</strong> tab to automatically synchronize the location here.</span>
+            </div>
           </div>
         )}
 

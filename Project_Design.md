@@ -109,11 +109,10 @@ graph TB
 
 | Component | Purpose | File |
 |-----------|---------|------|
-| **Overview Tab** | Display carbon budget, current usage %, points balance | `App.jsx` |
-| **Chat Tab** | Conversational interface with AI agent | `App.jsx` |
-| **Travel Packages Tab** | Display generated green/standard travel options | `App.jsx` |
-| **Transactions Tab** | Historical view of carbon transactions | `App.jsx` |
-| **Dashboard** | Real-time stats, progress bars, visualizations | `App.jsx` |
+| **Overview Tab** | Display carbon budget, current usage %, points balance, and Arize spend patterns | `App.jsx` |
+| **AI Eco-Agent Tab** | Conversational interface and package generator for booking green/standard travel | `App.jsx` |
+| **Google Travel Hub Tab** | Fully embedded dashboard for Google Maps, Google Flights, Google Hotels, and Google Travel Explore | `App.jsx` |
+| **Ledger & Status Tab** | Historical view and ledger of carbon transactions, offsets, and rewards | `App.jsx` |
 
 **Main State:**
 ```javascript
