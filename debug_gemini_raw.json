@@ -1,2 +1,79 @@
 {
-  "reply": "### 1. Summary\n\nFor your 3-day trip to Hawaii, the most carbon-efficient 'Eco Premium' package has a total carbon footprint of **492.8 kg CO₂e**.\n\n### 2. Calculation Breakdown\n\nHere's a detailed breakdown of three travel package options for your 3-day trip to Hawaii, including flights, accommodation, and local transit. The calculations are based on the provided live search results and standard emission factors.\n\n**Assumptions:**\n*   Flight emissions include a Radiative Forcing (RF) multiplier of 1.9, as is standard for aviation emissions to account for non-CO2 effects at altitude. The `co2_kg` values provided in the live search results are assumed to already incorporate this factor.\n*   Hotel emissions are calculated per room-night and multiplied by the 3-day duration of your trip.\n*   Transit emissions are for the entire 144.0 km route, including airport transfers, for the duration of the trip.\n\n**1. Eco Premium Package (Most Carbon-Efficient)**\n*   **Flight:** Hawaiian Airlines (SAF Eco-Flyer) (Flight HA51 - SAF) from your origin to Hawaii. This is a Medium-Haul flight (3000.0 km) on an Airbus A330-200, utilizing a 50% Sustainable Aviation Fuel (SAF) blend, which reduces the carbon footprint by 55% compared to conventional fuel. The calculated emissions are 384.8 kg CO₂e.\n*   **Stay:** 3 nights at the EcoNest Hawaii Certified Retreat, a LEED Gold certified property located at 2259 Kalakaua Ave, Honolulu, HI 96815 (Rating: 4.8 stars). This hotel runs on 100% solar power, practices strict zero-waste dining, and uses greywater systems. Emissions are 36.0 kg CO₂e per room-night.\n    *   Calculation: 36.0 kg CO₂e/room-night * 3 nights = 108.0 kg CO₂e\n*   **Transit:** An all-electric Tesla Model 3 rental for 144.0 km, powered entirely by the local solar charging network. This includes HNL Airport to Waikiki Hotel transfer via Route 19 Bus (12 km each way). Emissions are 0.0 kg CO₂e.\n\n    *   **Total Eco Premium CO₂e:** 384.8 kg (Flight) + 108.0 kg (Stay) + 0.0 kg (Transit) = **492.8 kg CO₂e**\n    *   **Total Eco Premium Price:** $345.0 (Flight) + $1350.0 (Stay) + $195.0 (Transit) = **$1890.0**\n\n**2. Eco Balanced Package**\n*   **Flight:** United Airlines (Hybrid Blend) (Flight UA362 - Eco-Blend) to Hawaii. This is a Medium-Haul flight (3000.0 km) on a Boeing 767-400ER, using a 30% Sustainable Aviation Fuel (SAF) blend, reducing the carbon footprint by 33%. The calculated emissions are 572.9 kg CO₂e.\n*   **Stay:** 3 nights at the Green Haven Hawaii Boutique Lodge, located at 120 Kaiulani Ave, Honolulu, HI 96815 (Rating: 4.3 stars). This boutique lodging features basic eco-efficiency practices, LED lighting systems, and water-conserving plumbing fixtures. Emissions are 75.0 kg CO₂e per room-night.\n    *   Calculation: 75.0 kg CO₂e/room-night * 3 nights = 225.0 kg CO₂e\n*   **Transit:** A standard Toyota Prius hybrid vehicle rental
+  "reply": "Here are your 3-day Hawaii travel options:\n\n• **Green Choice**: 🌍 Hawaii 3 Days | **521 kg CO₂** | **$990** | **174 pts**\n  ✈️ HA51 (SAF Eco-Flyer), 🏨 EcoNest Retreat (Solar), 🚗 Tesla Model 3 (EV)\n• **Balanced Choice**: 🌍 Hawaii 3 Days | **694 kg CO₂** | **$876** | **116 pts**\n  ✈️ UA362 (Hybrid Blend), 🏨 Green Haven Lodge, 🚗 Toyota Prius (Hybrid)\n• **Standard Choice**: 🌍 Hawaii 3 Days | **1031 kg CO₂** | **$840** | **N/A**\n  ✈️ DL329 (Standard), 🏨 Grand Plaza Resort, 🚗 Gas SUV\n\nThe Green Choice saves **515 kg CO₂** (50% less than Standard) for an additional **$150**.",
+  "package_summary": {
+    "destination": "hawaii",
+    "days": 3,
+    "green_choice": {
+      "flight": {
+        "carrier": "Hawaiian Airlines (SAF Eco-Flyer) (Flight HA51 - SAF)",
+        "co2_kg": 384.8,
+        "price_usd": 345.0,
+        "details": "Medium-Haul flight (3000.0 km) on Airbus A330-200 with Hawaiian Airlines (SAF Eco-Flyer). Utilizes 50% Sustainable Aviation Fuel (SAF) blend, reducing carbon footprint by 55%."
+      },
+      "stay": {
+        "hotel": "EcoNest Hawaii Certified Retreat",
+        "co2_kg": 36.0,
+        "price_usd": 450.0,
+        "details": "LEED Gold certified property in travel to hawaii. Located at 2259 Kalakaua Ave, Honolulu, HI 96815 (Rating: 4.8 stars). Runs on 100% solar power, practices strict zero-waste dining, and uses greywater systems."
+      },
+      "transit": {
+        "vehicle": "Tesla Model 3 (EV Rental)",
+        "co2_kg": 0.0,
+        "price_usd": 195.0,
+        "details": "All-electric Tesla Model 3 for 144.0 km (Includes airport transfer: Includes HNL Airport to Waikiki Hotel transfer via Route 19 Bus (12 km each way)). Powered entirely by the local solar charging network (0 tailpipe emissions)."
+      },
+      "total_co2": 420.8,
+      "total_price_usd": 990.0,
+      "points_earned": 174,
+      "summary": "Green Choice: Eco-friendly flight with SAF, sustainable lodging, and electric vehicle.",
+      "co2_savings": 610.2
+    },
+    "balanced_choice": {
+      "flight": {
+        "carrier": "United Airlines (Hybrid Blend) (Flight UA362 - Eco-Blend)",
+        "co2_kg": 572.9,
+        "price_usd": 321.0,
+        "details": "Medium-Haul flight (3000.0 km) on Boeing 767-400ER with United Airlines (Hybrid Blend). Uses a 30% Sustainable Aviation Fuel (SAF) blend, reducing carbon footprint by 33%."
+      },
+      "stay": {
+        "hotel": "Green Haven Hawaii Boutique Lodge",
+        "co2_kg": 75.0,
+        "price_usd": 420.0,
+        "details": "Boutique lodging in travel to hawaii. Located at 120 Kaiulani Ave, Honolulu, HI 96815 (Rating: 4.3 stars). Featuring basic eco-efficiency practices, LED lighting systems, and water-conserving plumbing fixtures."
+      },
+      "transit": {
+        "vehicle": "Toyota Prius (Hybrid Rental)",
+        "co2_kg": 15.7,
+        "price_usd": 135.0,
+        "details": "Standard Toyota Prius hybrid vehicle for 144.0 km (Includes airport transfer: Includes HNL Airport to Waikiki Hotel transfer via Route 19 Bus (12 km each way)) (109 g CO2e/km factor)."
+      },
+      "total_co2": 693.6,
+      "total_price_usd": 876.0,
+      "points_earned": 116,
+      "summary": "Balanced Choice: Flight with moderate SAF blend, eco-conscious lodging, and hybrid vehicle.",
+      "co2_savings": 332.4
+    },
+    "standard_choice": {
+      "flight": {
+        "carrier": "Delta Air Lines (Flight DL329)",
+        "co2_kg": 855.0,
+        "price_usd": 300.0,
+        "details": "Medium-Haul flight (3000.0 km) on Boeing 767-300ER with Delta Air Lines. Standard direct economy flight using conventional kerosene jet fuel."
+      },
+      "stay": {
+        "hotel": "Grand Plaza Hawaii Palms Resort",
+        "co2_kg": 135.0,
+        "price_usd": 390.0,
+        "details": "Conventional upscale full-service resort in travel to hawaii. Located at 2005 Kalia Rd, Honolulu, HI 96815 (Rating: 4.6 stars). Conventional heating, ventilation, and air conditioning (legacy HVAC)."
+      },
+      "transit": {
+        "vehicle": "Full-Size Gas SUV Rental",
+        "co2_kg": 40.6,
+        "price_usd": 150.0,
+        "details": "Standard gasoline internal combustion engine SUV for 144.0 km (Includes airport transfer: Includes HNL Airport to Waikiki Hotel transfer via Route 19 Bus (12 km each way)) (282 g CO2e/km factor)."
+      },
+      "total_co2": 1030.6,
+      "total_price_usd": 840.0
+    }
+  }
+}

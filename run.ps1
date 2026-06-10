@@ -15,7 +15,7 @@ foreach ($port in $ports) {
 
 # Launch Backend in a separate window
 Write-Host "Launching Backend (FastAPI + Arize Phoenix Agent Tracing)..." -ForegroundColor Cyan
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd 'C:\Users\tanvi\Hackathons\team_hackathon'; `$env:PYTHONIOENCODING='utf-8'; python -m backend.main"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd 'C:\Users\tanvi\Hackathons\team_hackathon'; `$env:PYTHONIOENCODING='utf-8'; .\.venv\Scripts\python.exe -m backend.main"
 
 # Launch Frontend in a separate window
 Write-Host "Launching Frontend (Vite + React Dashboard)..." -ForegroundColor Cyan

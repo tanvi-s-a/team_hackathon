@@ -25,12 +25,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/")
+def read_root():
+    return {
+        "status": "online",
+        "message": "Welcome to the Carbon Account API! The backend services are fully functional.",
+        "endpoints": {
+            "summary": "/api/summary",
+            "transactions": "/api/transactions",
+            "agent": "/api/agent",
+            "download_pdf": "/api/download-pdf"
+        }
+    }
+
+
 # Request models
 class ChatMessage(BaseModel):
     sender: str
     text: str
     timestamp: str
     type: str = 'text'
+    
+    class Config:
+        extra = 'ignore'  # Ignore extra fields like 'id' and 'packageSummary' from frontend
 
 class ChatRequest(BaseModel):
     query: str
@@ -72,9 +89,34 @@ class PDFRequest(BaseModel):
     bal_co2_savings: float | None = None
     bal_points_earned: int | None = None
 
+def safe_float(val, default=0.0):
+    if val is None:
+        return default
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return default
+
+def safe_int(val, default=0):
+    if val is None:
+        return default
+    try:
+        return int(val)
+    except (ValueError, TypeError):
+        return default
+
 def create_comparison_chart(green_co2, std_co2, green_price, std_price, bal_co2=None, bal_price=None):
     from reportlab.graphics.shapes import Drawing, Rect, String
     from reportlab.lib import colors
+    
+    # Safely convert to float
+    green_co2 = safe_float(green_co2)
+    std_co2 = safe_float(std_co2)
+    green_price = safe_float(green_price)
+    std_price = safe_float(std_price)
+    
+    bal_co2_val = safe_float(bal_co2) if bal_co2 is not None else round((green_co2 + std_co2) / 2.0, 1)
+    bal_price_val = safe_float(bal_price) if bal_price is not None else round((green_price + std_price) / 2.0, 2)
     
     d = Drawing(400, 200)
     # Background card
@@ -84,51 +126,49 @@ def create_comparison_chart(green_co2, std_co2, green_price, std_price, bal_co2=
     d.add(String(20, 175, "Carbon & Cost Comparison Chart", fontSize=14, fontName="Helvetica-Bold", fillColor=colors.white))
     
     # Y Axis scale and labels
-    max_co2 = max(green_co2 or 0, bal_co2 or 0, std_co2 or 0, 10)
-    max_price = max(green_price or 0, bal_price or 0, std_price or 0, 10)
+    max_co2 = max(green_co2, bal_co2_val, std_co2, 10.0)
+    max_price = max(green_price, bal_price_val, std_price, 10.0)
     
     # Left Bar: CO2 emissions
     d.add(String(20, 140, "Emissions (kg CO₂)", fontSize=10, fontName="Helvetica-Bold", fillColor=colors.HexColor('#9ca3af')))
     
     # Eco Premium CO2 bar (Green)
-    green_co2_height = ((green_co2 or 0) / max_co2) * 80
+    green_co2_height = (green_co2 / max_co2) * 80.0
     d.add(Rect(20, 40, 32, green_co2_height, fillColor=colors.HexColor('#10b981'), strokeColor=None))
-    d.add(String(20, 40 + green_co2_height + 5, f"{green_co2 or 0}", fontSize=8, fontName="Helvetica-Bold", fillColor=colors.HexColor('#10b981')))
+    d.add(String(20, 40 + green_co2_height + 5, f"{green_co2}", fontSize=8, fontName="Helvetica-Bold", fillColor=colors.HexColor('#10b981')))
     d.add(String(20, 25, "Eco Prem", fontSize=8, fontName="Helvetica", fillColor=colors.HexColor('#9ca3af')))
     
     # Eco Balanced CO2 bar (Blue)
-    bal_co2_val = bal_co2 if bal_co2 is not None else round((green_co2 + std_co2) / 2, 1) if (green_co2 and std_co2) else 0
-    bal_co2_height = (bal_co2_val / max_co2) * 80
+    bal_co2_height = (bal_co2_val / max_co2) * 80.0
     d.add(Rect(60, 40, 32, bal_co2_height, fillColor=colors.HexColor('#3b82f6'), strokeColor=None))
     d.add(String(60, 40 + bal_co2_height + 5, f"{bal_co2_val}", fontSize=8, fontName="Helvetica-Bold", fillColor=colors.HexColor('#3b82f6')))
     d.add(String(60, 25, "Eco Bal", fontSize=8, fontName="Helvetica", fillColor=colors.HexColor('#9ca3af')))
     
     # Standard CO2 bar (Red)
-    std_co2_height = ((std_co2 or 0) / max_co2) * 80
+    std_co2_height = (std_co2 / max_co2) * 80.0
     d.add(Rect(100, 40, 32, std_co2_height, fillColor=colors.HexColor('#ef4444'), strokeColor=None))
-    d.add(String(100, 40 + std_co2_height + 5, f"{std_co2 or 0}", fontSize=8, fontName="Helvetica-Bold", fillColor=colors.HexColor('#ef4444')))
+    d.add(String(100, 40 + std_co2_height + 5, f"{std_co2}", fontSize=8, fontName="Helvetica-Bold", fillColor=colors.HexColor('#ef4444')))
     d.add(String(100, 25, "Standard", fontSize=8, fontName="Helvetica", fillColor=colors.HexColor('#9ca3af')))
     
     # Right Bar: Cost
     d.add(String(220, 140, "Cost (USD)", fontSize=10, fontName="Helvetica-Bold", fillColor=colors.HexColor('#9ca3af')))
     
     # Eco Premium Price bar (Green)
-    green_price_height = ((green_price or 0) / max_price) * 80
+    green_price_height = (green_price / max_price) * 80.0
     d.add(Rect(220, 40, 32, green_price_height, fillColor=colors.HexColor('#10b981'), strokeColor=None))
-    d.add(String(220, 40 + green_price_height + 5, f"${int(green_price or 0)}", fontSize=8, fontName="Helvetica-Bold", fillColor=colors.HexColor('#10b981')))
+    d.add(String(220, 40 + green_price_height + 5, f"${int(green_price)}", fontSize=8, fontName="Helvetica-Bold", fillColor=colors.HexColor('#10b981')))
     d.add(String(220, 25, "Eco Prem", fontSize=8, fontName="Helvetica", fillColor=colors.HexColor('#9ca3af')))
     
     # Eco Balanced Price bar (Blue)
-    bal_price_val = bal_price if bal_price is not None else round((green_price + std_price) / 2, 2) if (green_price and std_price) else 0
-    bal_price_height = (bal_price_val / max_price) * 80
+    bal_price_height = (bal_price_val / max_price) * 80.0
     d.add(Rect(260, 40, 32, bal_price_height, fillColor=colors.HexColor('#3b82f6'), strokeColor=None))
     d.add(String(260, 40 + bal_price_height + 5, f"${int(bal_price_val)}", fontSize=8, fontName="Helvetica-Bold", fillColor=colors.HexColor('#3b82f6')))
     d.add(String(260, 25, "Eco Bal", fontSize=8, fontName="Helvetica", fillColor=colors.HexColor('#9ca3af')))
     
     # Standard Price bar (Red)
-    std_price_height = ((std_price or 0) / max_price) * 80
+    std_price_height = (std_price / max_price) * 80.0
     d.add(Rect(300, 40, 32, std_price_height, fillColor=colors.HexColor('#ef4444'), strokeColor=None))
-    d.add(String(300, 40 + std_price_height + 5, f"${int(std_price or 0)}", fontSize=8, fontName="Helvetica-Bold", fillColor=colors.HexColor('#ef4444')))
+    d.add(String(300, 40 + std_price_height + 5, f"${int(std_price)}", fontSize=8, fontName="Helvetica-Bold", fillColor=colors.HexColor('#ef4444')))
     d.add(String(300, 25, "Standard", fontSize=8, fontName="Helvetica", fillColor=colors.HexColor('#9ca3af')))
     
     return d
@@ -273,21 +313,55 @@ def generate_pdf_report(data: Dict[str, Any]) -> bytes:
         bal_stay = data.get("bal_stay") or {}
         bal_transit = data.get("bal_transit") or {}
         
-        flight_green_text = f"<b>{safe_xml_escape(green_flight.get('carrier', 'N/A'))}</b><br/>{safe_xml_escape(green_flight.get('details', ''))}<br/>Price: ${green_flight.get('price_usd', 0):.2f} | CO₂: {green_flight.get('co2_kg', 0)} kg"
-        flight_bal_text = f"<b>{safe_xml_escape(bal_flight.get('carrier', 'N/A'))}</b><br/>{safe_xml_escape(bal_flight.get('details', ''))}<br/>Price: ${bal_flight.get('price_usd', 0):.2f} | CO₂: {bal_flight.get('co2_kg', 0)} kg"
-        flight_std_text = f"<b>{safe_xml_escape(std_flight.get('carrier', 'N/A'))}</b><br/>{safe_xml_escape(std_flight.get('details', ''))}<br/>Price: ${std_flight.get('price_usd', 0):.2f} | CO₂: {std_flight.get('co2_kg', 0)} kg"
+        gf_price = safe_float(green_flight.get("price_usd"))
+        gf_co2 = safe_float(green_flight.get("co2_kg"))
+        bf_price = safe_float(bal_flight.get("price_usd"))
+        bf_co2 = safe_float(bal_flight.get("co2_kg"))
+        sf_price = safe_float(std_flight.get("price_usd"))
+        sf_co2 = safe_float(std_flight.get("co2_kg"))
+        
+        gs_price = safe_float(green_stay.get("price_usd"))
+        gs_co2 = safe_float(green_stay.get("co2_kg"))
+        bs_price = safe_float(bal_stay.get("price_usd"))
+        bs_co2 = safe_float(bal_stay.get("co2_kg"))
+        ss_price = safe_float(std_stay.get("price_usd"))
+        ss_co2 = safe_float(std_stay.get("co2_kg"))
+        
+        gt_price = safe_float(green_transit.get("price_usd"))
+        gt_co2 = safe_float(green_transit.get("co2_kg"))
+        bt_price = safe_float(bal_transit.get("price_usd"))
+        bt_co2 = safe_float(bal_transit.get("co2_kg"))
+        st_price = safe_float(std_transit.get("price_usd"))
+        st_co2 = safe_float(std_transit.get("co2_kg"))
 
-        stay_green_text = f"<b>{safe_xml_escape(green_stay.get('hotel', 'N/A'))}</b><br/>{safe_xml_escape(green_stay.get('details', ''))}<br/>Price: ${green_stay.get('price_usd', 0):.2f} | CO₂: {green_stay.get('co2_kg', 0)} kg"
-        stay_bal_text = f"<b>{safe_xml_escape(bal_stay.get('hotel', 'N/A'))}</b><br/>{safe_xml_escape(bal_stay.get('details', ''))}<br/>Price: ${bal_stay.get('price_usd', 0):.2f} | CO₂: {bal_stay.get('co2_kg', 0)} kg"
-        stay_std_text = f"<b>{safe_xml_escape(std_stay.get('hotel', 'N/A'))}</b><br/>{safe_xml_escape(std_stay.get('details', ''))}<br/>Price: ${std_stay.get('price_usd', 0):.2f} | CO₂: {std_stay.get('co2_kg', 0)} kg"
+        green_total_price = safe_float(data.get("green_total_price"))
+        green_total_co2 = safe_float(data.get("green_total_co2"))
+        co2_savings = safe_float(data.get("co2_savings"))
+        points_earned = safe_int(data.get("points_earned"))
+        
+        bal_total_price = safe_float(data.get("bal_total_price"))
+        bal_total_co2 = safe_float(data.get("bal_total_co2"))
+        bal_co2_savings = safe_float(data.get("bal_co2_savings"))
+        bal_points_earned = safe_int(data.get("bal_points_earned"))
+        
+        std_total_price = safe_float(data.get("std_total_price"))
+        std_total_co2 = safe_float(data.get("std_total_co2"))
+        
+        flight_green_text = f"<b>{safe_xml_escape(green_flight.get('carrier', 'N/A'))}</b><br/>{safe_xml_escape(green_flight.get('details', ''))}<br/>Price: ${gf_price:.2f} | CO₂: {gf_co2} kg"
+        flight_bal_text = f"<b>{safe_xml_escape(bal_flight.get('carrier', 'N/A'))}</b><br/>{safe_xml_escape(bal_flight.get('details', ''))}<br/>Price: ${bf_price:.2f} | CO₂: {bf_co2} kg"
+        flight_std_text = f"<b>{safe_xml_escape(std_flight.get('carrier', 'N/A'))}</b><br/>{safe_xml_escape(std_flight.get('details', ''))}<br/>Price: ${sf_price:.2f} | CO₂: {sf_co2} kg"
 
-        transit_green_text = f"<b>{safe_xml_escape(green_transit.get('vehicle', 'N/A'))}</b><br/>{safe_xml_escape(green_transit.get('details', ''))}<br/>Price: ${green_transit.get('price_usd', 0):.2f} | CO₂: {green_transit.get('co2_kg', 0)} kg"
-        transit_bal_text = f"<b>{safe_xml_escape(bal_transit.get('vehicle', 'N/A'))}</b><br/>{safe_xml_escape(bal_transit.get('details', ''))}<br/>Price: ${bal_transit.get('price_usd', 0):.2f} | CO₂: {bal_transit.get('co2_kg', 0)} kg"
-        transit_std_text = f"<b>{safe_xml_escape(std_transit.get('vehicle', 'N/A'))}</b><br/>{safe_xml_escape(std_transit.get('details', ''))}<br/>Price: ${std_transit.get('price_usd', 0):.2f} | CO₂: {std_transit.get('co2_kg', 0)} kg"
+        stay_green_text = f"<b>{safe_xml_escape(green_stay.get('hotel', 'N/A'))}</b><br/>{safe_xml_escape(green_stay.get('details', ''))}<br/>Price: ${gs_price:.2f} | CO₂: {gs_co2} kg"
+        stay_bal_text = f"<b>{safe_xml_escape(bal_stay.get('hotel', 'N/A'))}</b><br/>{safe_xml_escape(bal_stay.get('details', ''))}<br/>Price: ${bs_price:.2f} | CO₂: {bs_co2} kg"
+        stay_std_text = f"<b>{safe_xml_escape(std_stay.get('hotel', 'N/A'))}</b><br/>{safe_xml_escape(std_stay.get('details', ''))}<br/>Price: ${ss_price:.2f} | CO₂: {ss_co2} kg"
 
-        total_green_text = f"Cost: ${data.get('green_total_price', 0):.2f}<br/>CO₂: {data.get('green_total_co2', 0)} kg<br/>Savings: {data.get('co2_savings', 0)} kg<br/>Points: +{data.get('points_earned', 0)} PTS"
-        total_bal_text = f"Cost: ${data.get('bal_total_price', 0):.2f}<br/>CO₂: {data.get('bal_total_co2', 0)} kg<br/>Savings: {data.get('bal_co2_savings', 0)} kg<br/>Points: +{data.get('bal_points_earned', 0)} PTS"
-        total_std_text = f"Cost: ${data.get('std_total_price', 0):.2f}<br/>CO₂: {data.get('std_total_co2', 0)} kg"
+        transit_green_text = f"<b>{safe_xml_escape(green_transit.get('vehicle', 'N/A'))}</b><br/>{safe_xml_escape(green_transit.get('details', ''))}<br/>Price: ${gt_price:.2f} | CO₂: {gt_co2} kg"
+        transit_bal_text = f"<b>{safe_xml_escape(bal_transit.get('vehicle', 'N/A'))}</b><br/>{safe_xml_escape(bal_transit.get('details', ''))}<br/>Price: ${bt_price:.2f} | CO₂: {bt_co2} kg"
+        transit_std_text = f"<b>{safe_xml_escape(std_transit.get('vehicle', 'N/A'))}</b><br/>{safe_xml_escape(std_transit.get('details', ''))}<br/>Price: ${st_price:.2f} | CO₂: {st_co2} kg"
+
+        total_green_text = f"Cost: ${green_total_price:.2f}<br/>CO₂: {green_total_co2} kg<br/>Savings: {co2_savings} kg<br/>Points: +{points_earned} PTS"
+        total_bal_text = f"Cost: ${bal_total_price:.2f}<br/>CO₂: {bal_total_co2} kg<br/>Savings: {bal_co2_savings} kg<br/>Points: +{bal_points_earned} PTS"
+        total_std_text = f"Cost: ${std_total_price:.2f}<br/>CO₂: {std_total_co2} kg"
 
         table_cell_style_white = ParagraphStyle(
             'TableCellWhite',
@@ -347,31 +421,27 @@ def generate_pdf_report(data: Dict[str, Any]) -> bytes:
         story.append(t)
         story.append(Spacer(1, 10))
         
-        savings = data.get('co2_savings', 0) or 0
-        bal_savings = data.get('bal_co2_savings', 0) or 0
-        std_co2 = data.get('std_total_co2', 1) or 1
-        points = data.get('points_earned', 0) or 0
-        bal_points = data.get('bal_points_earned', 0) or 0
+        std_co2_val = std_total_co2 or 1.0
         
         highlight_text = (
             f"🌱 <strong>Sustainable Impact Details:</strong> Choosing the <strong>Eco Premium Itinerary</strong> "
-            f"saves a total of <strong>{savings} kg CO₂</strong> ({round((savings / std_co2) * 100, 1)}% reduction) "
-            f"and awards you <strong>+{points} Green Points</strong>. "
+            f"saves a total of <strong>{co2_savings} kg CO₂</strong> ({round((co2_savings / std_co2_val) * 100, 1)}% reduction) "
+            f"and awards you <strong>+{points_earned} Green Points</strong>. "
             f"Alternatively, the <strong>Eco Balanced Itinerary</strong> saves "
-            f"<strong>{bal_savings} kg CO₂</strong> ({round((bal_savings / std_co2) * 100, 1)}% reduction) "
-            f"and awards you <strong>+{bal_points} Green Points</strong>."
+            f"<strong>{bal_co2_savings} kg CO₂</strong> ({round((bal_co2_savings / std_co2_val) * 100, 1)}% reduction) "
+            f"and awards you <strong>+{bal_points_earned} Green Points</strong>."
         )
         story.append(Paragraph(highlight_text, body_style))
         story.append(Spacer(1, 10))
         
         # Chart Section
         chart_drawing = create_comparison_chart(
-            green_co2=data.get('green_total_co2', 0),
-            std_co2=data.get('std_total_co2', 0),
-            green_price=data.get('green_total_price', 0),
-            std_price=data.get('std_total_price', 0),
-            bal_co2=data.get('bal_total_co2'),
-            bal_price=data.get('bal_total_price')
+            green_co2=green_total_co2,
+            std_co2=std_total_co2,
+            green_price=green_total_price,
+            std_price=std_total_price,
+            bal_co2=bal_total_co2,
+            bal_price=bal_total_price
         )
         story.append(KeepTogether([
             Paragraph("Comparative Cost & Carbon Breakdown Chart", h2_style),
@@ -544,11 +614,25 @@ def run_agent(payload: ChatRequest):
             history=[msg.dict() for msg in payload.history] if payload.history else [],
             package_context=payload.package_context
         )
+        
+        # Ensure response is always a valid dict
+        if response is None:
+            response = {
+                "reply": "I encountered an issue processing your request. Please try again.",
+                "package_summary": None
+            }
+        
         return response
     except Exception as e:
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
+        # Return a valid JSON response instead of raising an exception
+        # This prevents frontend from seeing HTTP 500 error
+        return {
+            "reply": f"Backend error: {str(e)}. Please check the server logs.",
+            "package_summary": None,
+            "error": str(e)
+        }
 
 @app.post("/api/book")
 def book_trip(payload: BookRequest):
@@ -751,4 +835,4 @@ if __name__ == "__main__":
     import uvicorn
     # Dynamically select module path depending on if run from root or backend directory
     module_path = "backend.main:app" if os.path.exists("backend") else "main:app"
-    uvicorn.run(module_path, host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run(module_path, host="127.0.0.1", port=8000, reload=False)

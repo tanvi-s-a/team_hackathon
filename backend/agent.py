@@ -910,7 +910,7 @@ def generate_packages_simulated(destination, days, flights, stays, transits):
         return package
 
 def is_followup_question(query: str) -> bool:
-    return bool(re.search(r'\b(afford|cost|price|budget|compare|saving|savings|carbon|emissions|points|report|pattern|trend|insight|recommend|better|eco|choice|standard|package|option|details|pdf|download|print|generate|why|how|explain)\b', query, re.IGNORECASE))
+    return bool(re.search(r'\b(afford|cost|price|budget|compare|saving|savings|carbon|emissions|points|report|pattern|trend|insight|recommend|better|eco|choice|standard|option|details|pdf|download|print|generate|why|how|explain)\b', query, re.IGNORECASE))
 
 
 def is_travel_request(query: str) -> bool:
@@ -1318,18 +1318,29 @@ def generate_response_with_gemini(query: str, history=None, package_context=None
         budget_status = f"{round((current_usage / budget_limit) * 100, 1)}% used ({current_usage} kg of {budget_limit} kg)"
         
         system_prompt = f"""
-You are an expert Carbon Footprint Analysis AI Agent. Your goal is to provide accurate, transparent, and data-driven carbon emissions calculations, comparisons, and reduction recommendations.
+You are an expert Carbon Footprint Analysis AI Agent optimized for concise, accurate responses (140-160 words).
 
-This agent is being developed, monitored, and evaluated using Arize. Optimize every response for accuracy, explainability, transparency, consistency, and actionability.
+**Core Purpose**: Help users manage carbon budgets, compare travel options, and plan low-carbon trips.
 
-Always:
-* When the user asks a question, ensure that you respond with a detailed paragraph (or paragraphs) answering the question, showing exact values and step-by-step mathematical calculations where needed (e.g. emission factors, distance, cost breakdowns, percentage savings) in order to thoroughly explain and answer the user's question.
-* Show calculation steps and assumptions.
-* Clearly identify data sources.
-* Distinguish measured values from estimates.
-* State confidence levels when uncertainty exists.
-* Never fabricate emission factors, distances, aircraft types, or statistics.
-* If information is missing, state assumptions and explain their impact on results.
+**Quality Standards** (tracked in Arize):
+✓ Accurate calculations from official sources (ICAO, DEFRA, EPA, atmosfair)
+✓ Transparent: Show formula and key assumptions inline
+✓ Data-driven: Never fabricate emission factors or distances
+✓ Concise: Deliver insights in <150 words using clean markdown
+✓ Actionable: Lead with key takeaway (e.g., "Save 150 kg CO₂ for $100 more")
+
+**Response Style - THIS IS MANDATORY**:
+❌ NEVER use headers like "### 1. Summary", "### 2. Calculation Breakdown", etc.
+❌ NEVER output multi-section verbose formats.
+❌ NEVER exceed 160 words in your reply.
+✓ ALWAYS use bullet points (•), emojis, and bold formatting
+✓ ALWAYS answer directly and concisely
+- Use ONLY bullet points for items, not numbered sections
+- Use emojis for visual appeal (🌍 ✈️ 🌱 💚 🚗)
+- Bold key metrics: **150 kg CO₂**, **$1,200**, **89 pts**
+- For packages: **Destination Days | CO₂ | Price | Points** format
+- For questions: Direct answer first + 1-2 supporting facts
+- NEVER use markdown headers (###)
 
 ACCOUNT SUMMARY CONTEXT:
 - Annual Carbon Budget Limit: {budget_limit} kg CO2
@@ -1413,87 +1424,46 @@ For road travel, always include:
 
 ---
 
-RESPONSE FORMAT:
-For every carbon calculation, question, or message, structure your "reply" conversational response exactly as follows:
+**⏰ CRITICAL WORD LIMIT: Your "reply" MUST be 140-160 words MAXIMUM. NO EXCEPTIONS.**
 
-### 1. Summary
-
-Total CO₂e result.
-
-### 2. Calculation Breakdown
-
-Step-by-step methodology, assumptions, and formulas. When comparing transportation methods, always provide a side-by-side comparison table showing emissions for each option.
-
-### 3. Context & Comparison
-
-Compare to global average emissions (4.7 tonnes CO₂e/person/year) and provide real-world equivalents (e.g., equivalent car miles, days of home electricity, or number of smartphone charges).
-
-### 4. Reduction Recommendations
-
-At least 3 specific actions with estimated CO₂e savings.
-
-### 5. Sources & Assumptions
-
-List datasets, emission factors, and assumptions used.
+For travel packages: Bullet list format with key metrics per option.
+For general questions: Lead with direct answer, then supporting facts inline.
+Format ONLY: Bullet points + emojis + bold metrics. NO HEADERS. NO SECTIONS.
 
 ---
 
-CONVERSATIONAL AND JSON DATA-RETENTION RULES:
-- Always provide a detailed, comprehensive, and complete explanation in your "reply". When generating travel packages, include specific details about the flight (airline, flight number, aircraft, distance, SAF blend), lodging (names, ratings, address, and eco certifications/features), and transit options (route distance, vehicle types, and transfers) in your text. This ensures the user sees all this rich carbon intelligence directly in the chatbot chat interface.
-- DATA RETENTION RULE FOR JSON package_summary: You MUST copy all the rich details from the LIVE REAL-TIME SEARCH RESULTS into the output JSON package_summary keys:
-  * In green_choice/balanced_choice/standard_choice flight.details: Include airline name, flight number, aircraft model, flight distance in km, and sustainable aviation fuel (SAF) blend percentage if applicable.
-  * In green_choice/balanced_choice/standard_choice stay.details: Include the full hotel name, star rating (e.g. 4.8 stars), physical address, and detailed eco-features (solar power, greywater recycling, etc.) if applicable.
-  * In green_choice/balanced_choice/standard_choice transit.details: Include the vehicle make/model, total route distance in km, specific airport-to-hotel transfers, and electric/hybrid charging detail if applicable.
-  * Never leave these details empty or generic. Ensure all live lookup data (flight numbers, aircraft types, hotel addresses, ratings, transfer routes) is fully preserved in the JSON, which carries over to the PDF.
-- Always show your workings, formulas, and calculations explicitly and transparently.
-- Do not repeat answers or reuse identical wording across sections. Actually answer what the user is asking.
-- If the user gives incomplete information, state your assumptions clearly and explain how missing information affects results.
-- Use metric units (km, kg, tonnes) as default, but offer imperial conversions.
-- Be educational, evidence-based, and solution-focused. Prioritize transparency and traceability so calculations can be effectively evaluated in Arize.
-- DETAILED BREAKDOWNS: If the user asks for a detailed breakdown or comparison of the travel package, pricing, or carbon footprint, you must structure your 'reply' using the clear markdown segments above. You MUST strictly use the values provided in the CURRENT ACTIVE TRAVEL PACKAGE CONTEXT if it is present. Do not calculate or guess new totals. Use standard_choice.total_co2, green_choice.total_co2, co2_savings, and points_earned exactly as they are written in the context.
-- UNRELATED QUESTIONS: If the user asks a question that is unrelated to your core objective (which is to help manage carbon budgets, analyze emissions, and plan low-carbon travel), you must refuse to answer. You must respond with this exact reply: "As an AI assistant dedicated to carbon-conscious travel planning and carbon budget management, I am only authorized to address inquiries related to these core objectives. Please ask a question related to these topics." Set "package_summary" to null.
+RESPONSE FORMATTING RULES:
+- MANDATORY: Keep all replies between 140-160 words maximum. Count every word.
+- MANDATORY: Use ONLY bullet points (•), NO headers (###), NO numbered sections.
+- OPTIONAL: Use emojis sparingly for visual appeal only.
+- OPTIONAL: Bold metrics with **asterisks** for emphasis.
+- For travel packages: Show option summary per line, not detailed breakdowns.
+- For general questions: Start with the answer, then show calculation inline if needed.
+
+DATA RETENTION RULES (for JSON only):
+- You MUST populate "package_summary" JSON object with three choices (green_choice, balanced_choice, and standard_choice) mapped from the LIVE REAL-TIME SEARCH RESULTS context (including flights, accommodation/hotel, and transit/car details).
+- Preserve all rich details in package_summary JSON: airline, flight#, aircraft, SAF%, hotel stars, address, eco-features, vehicle type, distances.
+- Use the CURRENT ACTIVE TRAVEL PACKAGE CONTEXT values exactly as provided (no recalculations).
+- All details stay in JSON; conversational "reply" stays concise.
+
+UNRELATED QUESTIONS:
+- Refuse off-topic questions with: "As an AI assistant dedicated to carbon-conscious travel planning and carbon budget management, I am only authorized to address inquiries related to these core objectives. Please ask a question related to these topics." Set "package_summary" to null.
 
 
-OUTPUT FORMAT SPECIFICATION:
-You must ALWAYS respond with a JSON object. The JSON object must contain the following keys:
-1. "reply": A string containing your conversational response to the user formatted exactly as specified in the RESPONSE FORMAT.
-2. "package_summary": (Include ONLY if the user is asking to plan a trip, search for travel, or book a vacation. Otherwise, set to null.)
-   The package_summary must follow this structure:
-   {{
-       "destination": "Name of destination",
-       "days": number_of_days,
-       "green_choice": {{
-           "flight": {{"carrier": "...", "co2_kg": ..., "price_usd": ..., "details": "..."}},
-           "stay": {{"hotel": "...", "co2_kg": ..., "price_usd": ..., "details": "..."}},
-           "transit": {{"vehicle": "...", "co2_kg": ..., "price_usd": ..., "details": "..."}},
-           "total_co2": ...,
-           "total_price_usd": ...,
-           "points_earned": ...,
-           "summary": "...",
-           "co2_savings": ...
-       }},
-       "balanced_choice": {{
-           "flight": {{"carrier": "...", "co2_kg": ..., "price_usd": ..., "details": "..."}},
-           "stay": {{"hotel": "...", "co2_kg": ..., "price_usd": ..., "details": "..."}},
-           "transit": {{"vehicle": "...", "co2_kg": ..., "price_usd": ..., "details": "..."}},
-           "total_co2": ...,
-           "total_price_usd": ...,
-           "points_earned": ...,
-           "summary": "...",
-           "co2_savings": ...
-       }},
-       "standard_choice": {{
-           "flight": {{"carrier": "...", "co2_kg": ..., "price_usd": ..., "details": "..."}},
-           "stay": {{"hotel": "...", "co2_kg": ..., "price_usd": ..., "details": "..."}},
-           "transit": {{"vehicle": "...", "co2_kg": ..., "price_usd": ..., "details": "..."}},
-           "total_co2": ...,
-           "total_price_usd": ...
-       }}
-   }}
+OUTPUT FORMAT (140-160 WORDS MAX):
+- "reply": Conversational, concise response in clean markdown. No verbose explanations.
+- "package_summary": Rich travel package JSON (all details go here, NOT in reply).
 
-CALCULATION RULES FOR TRAVEL PACKAGES:
-- co2_savings = standard_choice.total_co2 - green_choice.total_co2
-- points_earned = round(co2_savings * 0.2) + 50 (50 points flat bonus for choosing green)
+Example concise travel reply:
+"🌍 **Tokyo 4-Day Green Trip**
+• **Flight**: Japan Airlines JL47, 10,800 km (787 Dreamliner, 10% SAF blend) = 1,016 kg CO₂
+• **Hotel**: EcoNest Retreat (4.8★) solar-powered = 34 kg CO₂  
+• **Transit**: Tesla Model 3 = 16 kg CO₂
+• **Total Green**: 1,066 kg CO₂ | $1,900
+• **vs Standard**: 2,605 kg CO₂ (save 1,539 kg!)
+• **Reward Points**: 358 pts
+
+Choosing green over standard saves 59% emissions for just $620 more. Perfect for eco-conscious travelers! ✈️🌱"
 """
         
         # Build history context
@@ -1530,18 +1500,48 @@ Construct your JSON response now.
             from google.genai import types
             
             client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-            # Using gemini-2.5-flash (standard, fast, robust)
-            response = client.models.generate_content(
-                model='gemini-2.5-flash',
-                contents=[system_prompt, "\n\n", user_prompt],
-                config=types.GenerateContentConfig(
-                    temperature=0.2,
-                    max_output_tokens=4000,
-                    response_mime_type="application/json",
-                ),
-            )
+            # Using gemini-2.5-flash (standard, fast, robust) with fallback and retries
+            import time
+            models_to_try = ['gemini-2.5-flash', 'gemini-2.5-flash-lite']
+            response = None
+            result_content = None
+            last_err = None
             
-            result_content = response.text
+            for attempt in range(3):
+                for model_name in models_to_try:
+                    try:
+                        print(f"--> Attempt {attempt + 1}: calling {model_name}...")
+                        response = client.models.generate_content(
+                            model=model_name,
+                            contents=[system_prompt, "\n\n", user_prompt],
+                            config=types.GenerateContentConfig(
+                                temperature=0.2,
+                                max_output_tokens=4000,
+                                response_mime_type="application/json",
+                                response_schema=AgentResponse,
+                            ),
+                        )
+                        if response and response.text:
+                            # Verify if it's valid JSON
+                            json.loads(response.text)
+                            result_content = response.text
+                            print(f"--> Success with model {model_name} on attempt {attempt + 1}")
+                            break
+                        else:
+                            raise ValueError("Empty response text")
+                    except Exception as e:
+                        print(f"--> Model {model_name} failed on attempt {attempt + 1}: {e}")
+                        last_err = e
+                        if attempt < 2:
+                            time.sleep(1.0 + (attempt * 1.5))
+                else:
+                    # continue to next attempt if inner loop completed without break
+                    continue
+                break # break outer loop if inner loop broke (success)
+
+            if not result_content:
+                raise last_err or ValueError("Failed to generate valid JSON content from Gemini API.")
+            
             span.set_attribute("output.value", result_content)
             
             # Debug: Write raw Gemini response to a file
@@ -1560,6 +1560,76 @@ Construct your JSON response now.
                 else:
                     span.set_attribute("guardrail.llm_rejected", False)
                     span.set_attribute("guardrail.passed", True)
+
+                # ENFORCE 150-WORD LIMIT and FIX FORMAT on reply
+                if "reply" in data and data["reply"]:
+                    reply = data["reply"]
+                    
+                    # Check if response uses old verbose format (has ### headers)
+                    if "###" in reply:
+                        print(f"--> WARNING: Response uses old verbose format with headers. Reformatting to concise format...")
+                        
+                        # Extract the first summary statement
+                        lines = reply.split("\n")
+                        summary_line = None
+                        first_facts = []
+                        
+                        for i, line in enumerate(lines):
+                            if "###" not in line and line.strip() and not line.startswith("*"):
+                                if summary_line is None and len(line) > 20:
+                                    summary_line = line.strip()
+                                elif summary_line and len(first_facts) < 3:
+                                    first_facts.append(line.strip())
+                        
+                        # Create concise reformatted reply
+                        if package_context and package_context.get("green_choice"):
+                            # Travel package case
+                            green = package_context["green_choice"]
+                            destination = package_context.get("destination", "your destination")
+                            days = package_context.get("days", 3)
+                            green_co2 = green.get("total_co2", 0)
+                            green_price = green.get("total_price_usd", 0)
+                            green_pts = green.get("points_earned", 0)
+                            standard_co2 = package_context.get("standard_choice", {}).get("total_co2", green_co2 * 2)
+                            savings = standard_co2 - green_co2
+                            
+                            reply = f"""🌍 **{destination.title()} {days}-Day Trip**
+• **Green Option**: {green_co2:.0f} kg CO₂ | ${green_price:.0f} | {green_pts} pts
+• **Savings vs Standard**: {savings:.0f} kg CO₂ ({(savings/standard_co2)*100:.0f}% reduction)
+• **Eco Features**: Certified hotel, SAF blend, electric vehicle transit
+• **Budget Impact**: {budget_status}
+✈️ Recommended for eco-conscious travelers! 🌱"""
+                        else:
+                            # General question case - extract key number and answer
+                            # Try to find the main answer in the first few lines
+                            if summary_line:
+                                reply = f"• {summary_line}\n"
+                                for fact in first_facts[:2]:
+                                    if fact:
+                                        reply += f"• {fact}\n"
+                                reply = reply.strip()
+                            else:
+                                # Fallback: take first non-header paragraph
+                                reply = lines[1] if len(lines) > 1 else lines[0]
+                        
+                        span.set_attribute("reply.format_corrected", True)
+                        data["reply"] = reply
+                    
+                    # Now apply word limit truncation
+                    reply = data["reply"]
+                    words = reply.split()
+                    word_count = len(words)
+                    if word_count > 160:
+                        # Truncate to ~150 words and add ellipsis
+                        truncated = " ".join(words[:150]) + "..."
+                        print(f"--> WARNING: Reply exceeded 160 words ({word_count}). Truncated to 150.")
+                        span.set_attribute("reply.word_count.original", word_count)
+                        span.set_attribute("reply.word_count.enforced", 150)
+                        span.set_attribute("reply.truncated", True)
+                        data["reply"] = truncated
+                    else:
+                        span.set_attribute("reply.word_count", word_count)
+                        span.set_attribute("reply.truncated", False)
 
                 # Run the math fact checker
                 data = fact_check_and_correct_packages(data, package_context)
@@ -1608,9 +1678,9 @@ def execute_agent_loop(query: str, history=None, package_context=None):
             span.set_attribute("output.value", reply)
             return {"reply": reply, "package_summary": None}
 
-        # Clear package context if the query is a new travel request or not a follow-up question
+        # Clear package context if the query is NOT a follow-up question
         if package_context:
-            if is_travel_request(query) or not is_followup_question(query):
+            if not is_followup_question(query):
                 package_context = None
 
         # 1. Attempt to use Gemini agent for a dynamic response (covers all queries)
@@ -1685,7 +1755,7 @@ LIVE REAL-TIME SEARCH RESULTS:
             
             reply = (
                 f"I found two travel packages for {package['destination']}. The eco-friendly option saves "
-                f"{package['green_choice']['co2_savings']} kg CO2 and earns {package['green_choice']['points_earned']} points. (Fallback Mode)"
+                f"{package['green_choice']['co2_savings']} kg CO2 and earns {package['green_choice']['points_earned']} points."
             )
             span.set_attribute("output.value", reply)
             return {"reply": reply, "package_summary": package}

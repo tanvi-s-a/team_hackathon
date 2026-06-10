@@ -249,8 +249,18 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: promptText.trim(), history: messages, package_context: contextToUse })
       });
-      if (!res.ok) throw new Error('Agent request failed');
+      
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
+      
       const data = await res.json();
+      
+      // Validate response structure
+      if (!data || typeof data !== 'object' || !('reply' in data)) {
+        console.error('Invalid response structure:', data);
+        throw new Error('Invalid response structure from agent');
+      }
 
       const replyMessage = {
         id: `agent-${Date.now()}`,
@@ -271,14 +281,14 @@ function App() {
       setArizeTraces((prev) => prev.map((t) => (t.id === 'span-1' ? { ...t, status: 'completed', duration: 3200 } : t)));
       showToast('Agent responded successfully! Check Arize Phoenix for detailed traces.');
     } catch (err) {
-      console.error(err);
+      console.error('Agent error:', err);
       setArizeTraces((prev) => prev.map((t) => (t.id === 'span-1' ? { ...t, status: 'failed', duration: 0 } : t)));
       setMessages((prev) => prev.map((msg) => (msg.id === 'pending-agent' ? {
         ...msg,
-        text: 'I encountered an error planning your carbon budget or looking up destinations. Please check the backend console.',
+        text: `Error communicating with agent: ${err.message}. Please check the browser console and backend logs for details.`,
         type: 'text'
       } : msg)));
-      showToast('Error communicating with the Eco-Agent.');
+      showToast(`Error: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -383,70 +393,70 @@ function App() {
       const payload = packageSummary ? {
         destination: packageSummary.destination,
         days: packageSummary.days,
-        green_flight: {
+        green_flight: packageSummary.green_choice?.flight ? {
           carrier: packageSummary.green_choice.flight.carrier,
           co2_kg: packageSummary.green_choice.flight.co2_kg,
           price_usd: packageSummary.green_choice.flight.price_usd,
           details: packageSummary.green_choice.flight.details,
-        },
-        green_stay: {
+        } : null,
+        green_stay: packageSummary.green_choice?.stay ? {
           hotel: packageSummary.green_choice.stay.hotel,
           co2_kg: packageSummary.green_choice.stay.co2_kg,
           price_usd: packageSummary.green_choice.stay.price_usd,
           details: packageSummary.green_choice.stay.details,
-        },
-        green_transit: {
+        } : null,
+        green_transit: packageSummary.green_choice?.transit ? {
           vehicle: packageSummary.green_choice.transit.vehicle,
           co2_kg: packageSummary.green_choice.transit.co2_kg,
           price_usd: packageSummary.green_choice.transit.price_usd,
           details: packageSummary.green_choice.transit.details,
-        },
-        std_flight: {
+        } : null,
+        std_flight: packageSummary.standard_choice?.flight ? {
           carrier: packageSummary.standard_choice.flight.carrier,
           co2_kg: packageSummary.standard_choice.flight.co2_kg,
           price_usd: packageSummary.standard_choice.flight.price_usd,
           details: packageSummary.standard_choice.flight.details,
-        },
-        std_stay: {
+        } : null,
+        std_stay: packageSummary.standard_choice?.stay ? {
           hotel: packageSummary.standard_choice.stay.hotel,
           co2_kg: packageSummary.standard_choice.stay.co2_kg,
           price_usd: packageSummary.standard_choice.stay.price_usd,
           details: packageSummary.standard_choice.stay.details,
-        },
-        std_transit: {
+        } : null,
+        std_transit: packageSummary.standard_choice?.transit ? {
           vehicle: packageSummary.standard_choice.transit.vehicle,
           co2_kg: packageSummary.standard_choice.transit.co2_kg,
           price_usd: packageSummary.standard_choice.transit.price_usd,
           details: packageSummary.standard_choice.transit.details,
-        },
-        green_total_co2: packageSummary.green_choice.total_co2,
-        green_total_price: packageSummary.green_choice.total_price_usd,
-        std_total_co2: packageSummary.standard_choice.total_co2,
-        std_total_price: packageSummary.standard_choice.total_price_usd,
-        co2_savings: packageSummary.green_choice.co2_savings,
-        points_earned: packageSummary.green_choice.points_earned,
-        bal_flight: packageSummary.balanced_choice ? {
+        } : null,
+        green_total_co2: packageSummary.green_choice?.total_co2,
+        green_total_price: packageSummary.green_choice?.total_price_usd,
+        std_total_co2: packageSummary.standard_choice?.total_co2,
+        std_total_price: packageSummary.standard_choice?.total_price_usd,
+        co2_savings: packageSummary.green_choice?.co2_savings,
+        points_earned: packageSummary.green_choice?.points_earned,
+        bal_flight: packageSummary.balanced_choice?.flight ? {
           carrier: packageSummary.balanced_choice.flight.carrier,
           co2_kg: packageSummary.balanced_choice.flight.co2_kg,
           price_usd: packageSummary.balanced_choice.flight.price_usd,
           details: packageSummary.balanced_choice.flight.details,
         } : null,
-        bal_stay: packageSummary.balanced_choice ? {
+        bal_stay: packageSummary.balanced_choice?.stay ? {
           hotel: packageSummary.balanced_choice.stay.hotel,
           co2_kg: packageSummary.balanced_choice.stay.co2_kg,
           price_usd: packageSummary.balanced_choice.stay.price_usd,
           details: packageSummary.balanced_choice.stay.details,
         } : null,
-        bal_transit: packageSummary.balanced_choice ? {
+        bal_transit: packageSummary.balanced_choice?.transit ? {
           vehicle: packageSummary.balanced_choice.transit.vehicle,
           co2_kg: packageSummary.balanced_choice.transit.co2_kg,
           price_usd: packageSummary.balanced_choice.transit.price_usd,
           details: packageSummary.balanced_choice.transit.details,
         } : null,
-        bal_total_co2: packageSummary.balanced_choice ? packageSummary.balanced_choice.total_co2 : null,
-        bal_total_price: packageSummary.balanced_choice ? packageSummary.balanced_choice.total_price_usd : null,
-        bal_co2_savings: packageSummary.balanced_choice ? packageSummary.balanced_choice.co2_savings : null,
-        bal_points_earned: packageSummary.balanced_choice ? packageSummary.balanced_choice.points_earned : null,
+        bal_total_co2: packageSummary.balanced_choice?.total_co2 ?? null,
+        bal_total_price: packageSummary.balanced_choice?.total_price_usd ?? null,
+        bal_co2_savings: packageSummary.balanced_choice?.co2_savings ?? null,
+        bal_points_earned: packageSummary.balanced_choice?.points_earned ?? null,
       } : {
         destination: null,
         days: null,
@@ -936,7 +946,7 @@ function App() {
         {activeTab === 'agent' && (
           <div className="agent-container">
             {/* Synthesized packages results */}
-            {currentPackages && (
+            {currentPackages && currentPackages.green_choice && currentPackages.standard_choice && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', marginBottom: '2rem' }}>
                 {/* Comparison Title Card */}
                 <div className="glass-card" style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(21, 28, 44, 0.6) 100%)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
@@ -1219,11 +1229,83 @@ function App() {
                           gap: '0.5rem'
                         }}>
                           <div style={{ fontWeight: 600, color: 'var(--primary)' }}>
-                            ✈️ Trip to {message.packageSummary.destination} ({message.packageSummary.days} Days)
+                            ✈️ Trip to {message.packageSummary?.destination} ({message.packageSummary?.days} Days)
                           </div>
                           <div style={{ fontSize: '0.85rem' }}>
-                            Green package saves <strong>{message.packageSummary.green_choice.co2_savings} kg CO₂</strong> and earns <strong>+{message.packageSummary.green_choice.points_earned} PTS</strong>.
+                            Green package saves <strong>{message.packageSummary?.green_choice?.co2_savings} kg CO₂</strong> and earns <strong>+{message.packageSummary?.green_choice?.points_earned} PTS</strong>.
                           </div>
+                          
+                          <div style={{ 
+                            display: 'grid', 
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', 
+                            gap: '0.5rem', 
+                            marginTop: '0.5rem',
+                            marginBottom: '0.5rem'
+                          }}>
+                            {/* Eco Premium */}
+                            {message.packageSummary?.green_choice && (
+                              <div style={{ 
+                                padding: '0.5rem', 
+                                background: 'rgba(16, 185, 129, 0.15)', 
+                                borderRadius: '4px',
+                                border: '1px solid rgba(16, 185, 129, 0.3)'
+                              }}>
+                                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#10b981' }}>🟢 Eco Premium</div>
+                                <div style={{ fontSize: '0.8rem', marginTop: '0.2rem' }}>
+                                  <strong>{message.packageSummary.green_choice.total_co2} kg</strong> CO₂
+                                </div>
+                                <div style={{ fontSize: '0.8rem' }}>
+                                  <strong>${message.packageSummary.green_choice.total_price_usd}</strong>
+                                </div>
+                                <div style={{ fontSize: '0.7rem', color: 'var(--accent)', fontWeight: 600 }}>
+                                  +{message.packageSummary.green_choice.points_earned} PTS
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Eco Balanced */}
+                            {message.packageSummary?.balanced_choice && (
+                              <div style={{ 
+                                padding: '0.5rem', 
+                                background: 'rgba(245, 158, 11, 0.1)', 
+                                borderRadius: '4px',
+                                border: '1px solid rgba(245, 158, 11, 0.2)'
+                              }}>
+                                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#f59e0b' }}>💛 Eco Balanced</div>
+                                <div style={{ fontSize: '0.8rem', marginTop: '0.2rem' }}>
+                                  <strong>{message.packageSummary.balanced_choice.total_co2} kg</strong> CO₂
+                                </div>
+                                <div style={{ fontSize: '0.8rem' }}>
+                                  <strong>${message.packageSummary.balanced_choice.total_price_usd}</strong>
+                                </div>
+                                <div style={{ fontSize: '0.7rem', color: 'var(--accent)', fontWeight: 600 }}>
+                                  +{message.packageSummary.balanced_choice.points_earned} PTS
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Standard Baseline */}
+                            {message.packageSummary?.standard_choice && (
+                              <div style={{ 
+                                padding: '0.5rem', 
+                                background: 'rgba(239, 68, 68, 0.05)', 
+                                borderRadius: '4px',
+                                border: '1px solid rgba(239, 68, 68, 0.2)'
+                              }}>
+                                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#ef4444' }}>🔴 Standard Baseline</div>
+                                <div style={{ fontSize: '0.8rem', marginTop: '0.2rem' }}>
+                                  <strong>{message.packageSummary.standard_choice.total_co2} kg</strong> CO₂
+                                </div>
+                                <div style={{ fontSize: '0.8rem' }}>
+                                  <strong>${message.packageSummary.standard_choice.total_price_usd}</strong>
+                                </div>
+                                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                                  0 PTS
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          
                           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
                             <button
                               type="button"
