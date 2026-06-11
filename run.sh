@@ -1,30 +1,24 @@
 #!/bin/bash
 
-# Carbon Account Launch Script for macOS / Linux
-
 echo "===================================================="
 echo "      LAUNCHING CARBON ACCOUNT WEB APP & AGENT"
 echo "===================================================="
 
-# Check if ports 8000 or 6006 are in use
-ports=(8000 6006)
+ports=(8000 5173)
 for port in "${ports[@]}"; do
-  if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null ; then
-    echo "Warning: Port $port is already active. Make sure no other server is running on it."
+  if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1; then
+    echo "Warning: Port $port is already in use."
   fi
 done
 
-# Launch Backend in background
-echo "Launching Backend (FastAPI + Arize Phoenix Agent Tracing)..."
+echo "Launching Backend (FastAPI on 0.0.0.0:8000)..."
 PYTHONIOENCODING=utf-8 python3 -m backend.main &
 BACKEND_PID=$!
 
-# Launch Frontend in background
-echo "Launching Frontend (Vite + React Dashboard)..."
-cd frontend && npm run dev &
+echo "Launching Frontend (Vite preview on 0.0.0.0:5173)..."
+cd frontend && npm run preview -- --host 0.0.0.0 --port 5173 &
 FRONTEND_PID=$!
 
-# Handle shutdown of background processes on Ctrl+C
 cleanup() {
     echo ""
     echo "Stopping servers..."
@@ -35,11 +29,9 @@ cleanup() {
 trap cleanup SIGINT
 
 echo "----------------------------------------------------"
-echo "Done! The servers are running."
-echo "API endpoint: http://127.0.0.1:8000"
-echo "Arize Phoenix Console: http://localhost:6006"
-echo "Press Ctrl+C in this terminal to stop both servers."
+echo "Backend:  http://0.0.0.0:8000"
+echo "Frontend: http://0.0.0.0:5173"
+echo "Press Ctrl+C to stop both servers."
 echo "===================================================="
 
-# Keep script running to keep processes alive
 wait

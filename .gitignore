@@ -13,3 +13,6 @@ frontend/.env.local
 # OS files
 .DS_Store
 Thumbs.db
+
+frontend/.env.production
+backend/.env
