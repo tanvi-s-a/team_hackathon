@@ -120,3 +120,8 @@ If you're interested in contributing to GreenRoute, please read through the proj
 - Thanks to Google for the Gemini API powering the AI agent.
 - Thanks to Arize AI for Phoenix observability tooling.
 - Thanks to all open-source contributors behind FastAPI, Vite, and React.
+
+## License
+ 
+This project is licensed under the MIT License — see the LICENSE file in the repository for more details.
+
