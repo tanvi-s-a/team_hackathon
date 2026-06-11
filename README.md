@@ -114,3 +114,9 @@ If you're interested in contributing to GreenRoute, please read through the proj
 - **Sahasra Kalakonda** - _Initial work_ - [sahasrakalakonda16@gmail.com](mailto:sahasrakalakonda16@gmail.com)
 - **Tanvi Sathish Arvind** - _Initial work_ - [tanvi.s.arvind@gmail.com](mailto:tanvi.s.arvind@gmail.com)
 - **Strider Zimmerman** - _Initial work_ - [Strider.zimmerman@icloud.com](mailto:Strider.zimmerman@icloud.com)
+
+## Acknowledgments
+ 
+- Thanks to Google for the Gemini API powering the AI agent.
+- Thanks to Arize AI for Phoenix observability tooling.
+- Thanks to all open-source contributors behind FastAPI, Vite, and React.
