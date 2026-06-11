@@ -603,8 +603,11 @@ def download_pdf(payload: PDFRequest):
 @app.on_event("startup")
 def startup_event():
     # 1. Initialize Database and seed data
-    database.init_db()
-    print("--> Database initialized and seeded.")
+    try:
+        database.init_db()
+        print("--> Database initialized and seeded.")
+    except Exception as e:
+        print(f"--> CRITICAL ERROR: Database initialization failed: {e}")
     
     # 2. Start Arize Phoenix Server and setup OTel tracing
     try:

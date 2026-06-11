@@ -44,7 +44,8 @@ if sys.platform.startswith("win"):
 try:
     import phoenix as px
     from phoenix.otel import register
-except ImportError:
+except Exception as e:
+    print(f"--> Warning: Could not import Arize Phoenix: {e}")
     px = None
     register = None
 
