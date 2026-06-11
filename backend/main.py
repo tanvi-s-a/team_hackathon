@@ -845,4 +845,4 @@ if __name__ == "__main__":
     import uvicorn
     # Dynamically select module path depending on if run from root or backend directory
     module_path = "backend.main:app" if os.path.exists("backend") else "main:app"
-    uvicorn.run(module_path, host="0.0.0.0", port=8000, reload=False)
+    import os; port = int(os.environ.get("PORT", 8080)); uvicorn.run(module_path, host="0.0.0.0", port=port, reload=False)
