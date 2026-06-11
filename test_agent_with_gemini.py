@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test script for Carbon Travel Agent with Gemini 1.5 Flash
+Test script for Carbon Travel Agent with Gemini 2.5 Flash
 Tests the agent.execute_agent_loop() with various queries
 No changes made to the application - testing only
 """
