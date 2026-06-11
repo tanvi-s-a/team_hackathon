@@ -68,3 +68,28 @@ From the project root, use the provided launch scripts:
 ```
  
 This starts the FastAPI backend (port 8000) and the Vite frontend simultaneously and also launches the Arize Phoenix observability console at http://localhost:6006.
+
+### Configuration
+ 
+Before running the application, you will need a Google Gemini API key.
+ 
+1. Create a `.env` file inside the `backend/` directory:
+  ```plaintext
+  # backend/.env
+  GEMINI_API_KEY=your_gemini_api_key_here
+  ```
+ 
+2. Optionally, configure a PostgreSQL database (defaults to local SQLite if not set):
+  ```plaintext
+  DATABASE_URL=your_postgres_connection_string
+  # or individually:
+  POSTGRES_HOST=your_host
+  POSTGRES_USER=your_user
+  POSTGRES_PASSWORD=your_password
+  POSTGRES_DB=your_database
+  ```
+ 
+3. For cloud deployments (e.g., Google Cloud Run), set the following additional variable:
+  ```plaintext
+  PHOENIX_COLLECTOR_ENDPOINT=your_phoenix_collector_url
+  ```
