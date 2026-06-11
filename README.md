@@ -104,3 +104,7 @@ Before running the application, you will need a Google Gemini API key.
 - **Hosting & Infrastructure**: Google Cloud Run, Firebase Hosting
 - **Maps & Travel**: Google Maps API, Google Travel API
 - **Observability**: Arize Phoenix, OpenTelemetry, OpenInference
+
+## Contributing
+ 
+If you're interested in contributing to GreenRoute, please read through the project files and reach out to the team to see how you can help.
