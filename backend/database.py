@@ -66,7 +66,11 @@ def get_db_connection():
                 print("--> Warning: Falling back to local SQLite for development.")
     
     # Fallback SQLite Connection
-    DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "carbon.db")
+    is_cloud = os.getenv("K_SERVICE") is not None or os.getenv("ENVIRONMENT") == "production"
+    if is_cloud:
+        DB_PATH = "/tmp/carbon.db"
+    else:
+        DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "carbon.db")
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn

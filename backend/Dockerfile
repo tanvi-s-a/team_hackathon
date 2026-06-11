@@ -15,5 +15,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy backend application files
 COPY . .
 
-# Run the FastAPI server using uvicorn, reading the Cloud Run PORT env var
-CMD uvicorn main:app --host 0.0.0.0 --port $PORT
+# Run the FastAPI server using python, which dynamically resolves the port and module path
+CMD ["python", "main.py"]
