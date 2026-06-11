@@ -10,17 +10,27 @@ from typing import Dict, Any, List
 load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
 # Local imports
-from backend import database
-from backend import agent
-from backend import arize_integration
+from . import database
+from . import agent
+from . import arize_integration
 
 app = FastAPI(title="Carbon Account API")
 
 # Configure CORS so our React frontend can access this API
+# In production, set ALLOWED_ORIGINS env var with comma-separated domains
+# Default: allow all origins for development
+allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "*")
+allowed_origins = [origin.strip() for origin in allowed_origins_env.split(",") if origin.strip()]
+
+# Starlette does not allow allow_credentials=True when allow_origins contains "*"
+allow_credentials = False
+if "*" not in allowed_origins:
+    allow_credentials = True
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify the actual domain
-    allow_credentials=True,
+    allow_origins=allowed_origins,
+    allow_credentials=allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )
