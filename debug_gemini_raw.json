@@ -1,7 +1,7 @@
 {
-  "reply": "Here are your 3-day Hawaii travel options:\n\n• **Green Choice**: 🌍 Hawaii 3 Days | **521 kg CO₂** | **$990** | **174 pts**\n  ✈️ HA51 (SAF Eco-Flyer), 🏨 EcoNest Retreat (Solar), 🚗 Tesla Model 3 (EV)\n• **Balanced Choice**: 🌍 Hawaii 3 Days | **694 kg CO₂** | **$876** | **116 pts**\n  ✈️ UA362 (Hybrid Blend), 🏨 Green Haven Lodge, 🚗 Toyota Prius (Hybrid)\n• **Standard Choice**: 🌍 Hawaii 3 Days | **1031 kg CO₂** | **$840** | **N/A**\n  ✈️ DL329 (Standard), 🏨 Grand Plaza Resort, 🚗 Gas SUV\n\nThe Green Choice saves **515 kg CO₂** (50% less than Standard) for an additional **$150**.",
+  "reply": "Hawaii 3-Day Eco-Adventure 🌴\n• **Green Choice**: 451 kg CO₂ | $990 | 150 pts\n  - Flight: HA51 (3000 km, 50% SAF) **385 kg CO₂**\n  - Stay: EcoNest Retreat **36 kg CO₂**\n  - Transit: Tesla Model 3 **0 kg CO₂**\n• **Balanced Choice**: 664 kg CO₂ | $876 | 105 pts\n  - Flight: UA362 (3000 km, 30% SAF) **573 kg CO₂**\n  - Stay: Green Haven Lodge **75 kg CO₂**\n  - Transit: Toyota Prius **16 kg CO₂**\n• **Standard Choice**: 1,031 kg CO₂ | $840\n  - Flight: DL329 **855 kg CO₂**\n  - Stay: Grand Plaza Resort **135 kg CO₂**\n  - Transit: Gas SUV **41 kg CO₂**\n\nOpting for the greenest package saves **56%** emissions compared to standard, for an additional **$150**.",
   "package_summary": {
-    "destination": "hawaii",
+    "destination": "travel to hawaii",
     "days": 3,
     "green_choice": {
       "flight": {
@@ -22,11 +22,11 @@
         "price_usd": 195.0,
         "details": "All-electric Tesla Model 3 for 144.0 km (Includes airport transfer: Includes HNL Airport to Waikiki Hotel transfer via Route 19 Bus (12 km each way)). Powered entirely by the local solar charging network (0 tailpipe emissions)."
       },
-      "total_co2": 420.8,
+      "total_co2": 450.8,
       "total_price_usd": 990.0,
-      "points_earned": 174,
-      "summary": "Green Choice: Eco-friendly flight with SAF, sustainable lodging, and electric vehicle.",
-      "co2_savings": 610.2
+      "points_earned": 150,
+      "summary": "Greenest option: Flight (385 kg CO₂), Stay (36 kg CO₂), Transit (0 kg CO₂). Total: 451 kg CO₂.",
+      "co2_savings": 580.2
     },
     "balanced_choice": {
       "flight": {
@@ -39,7 +39,7 @@
         "hotel": "Green Haven Hawaii Boutique Lodge",
         "co2_kg": 75.0,
         "price_usd": 420.0,
-        "details": "Boutique lodging in travel to hawaii. Located at 120 Kaiulani Ave, Honolulu, HI 96815 (Rating: 4.3 stars). Featuring basic eco-efficiency practices, LED lighting systems, and water-conserving plumbing fixtures."
+        "details": "Boutique lodging in travel to hawaii. Featuring basic eco-efficiency practices, LED lighting systems, and water-conserving plumbing fixtures. Located at 120 Kaiulani Ave, Honolulu, HI 96815 (Rating: 4.3 stars)."
       },
       "transit": {
         "vehicle": "Toyota Prius (Hybrid Rental)",
@@ -47,11 +47,11 @@
         "price_usd": 135.0,
         "details": "Standard Toyota Prius hybrid vehicle for 144.0 km (Includes airport transfer: Includes HNL Airport to Waikiki Hotel transfer via Route 19 Bus (12 km each way)) (109 g CO2e/km factor)."
       },
-      "total_co2": 693.6,
+      "total_co2": 663.6,
       "total_price_usd": 876.0,
-      "points_earned": 116,
-      "summary": "Balanced Choice: Flight with moderate SAF blend, eco-conscious lodging, and hybrid vehicle.",
-      "co2_savings": 332.4
+      "points_earned": 105,
+      "summary": "Balanced option: Flight (573 kg CO₂), Stay (75 kg CO₂), Transit (16 kg CO₂). Total: 664 kg CO₂.",
+      "co2_savings": 367.4
     },
     "standard_choice": {
       "flight": {
