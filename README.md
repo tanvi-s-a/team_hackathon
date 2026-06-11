@@ -6,3 +6,9 @@ GreenRoute is an AI-powered carbon footprint management app that helps you trave
  
 These instructions will guide you on how to set up and run GreenRoute locally for development and testing purposes.
 
+### Prerequisites
+ 
+To run GreenRoute, you will need:
+ 
+- Node.js and npm for the frontend
+- Python 3.10+ and pip for the backend
