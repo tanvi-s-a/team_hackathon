@@ -10,9 +10,23 @@ from typing import Dict, Any, List
 load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
 # Local imports
-from . import database
-from . import agent
-from . import arize_integration
+import sys
+import types
+
+# Bootstrap 'backend' package in sys.modules if it cannot be imported normally.
+# This allows 'from backend import ...' to work when backend files are copied directly
+# to the root directory in the Docker container, or when main.py is run directly.
+if "backend" not in sys.modules:
+    try:
+        import backend
+    except ImportError:
+        backend_mock = types.ModuleType("backend")
+        backend_mock.__path__ = [os.path.dirname(os.path.abspath(__file__))]
+        sys.modules["backend"] = backend_mock
+
+from backend import database
+from backend import agent
+from backend import arize_integration
 
 app = FastAPI(title="Carbon Account API")
 
@@ -845,9 +859,5 @@ if __name__ == "__main__":
     import uvicorn
     # Dynamically select module path depending on if run from root or backend directory
     module_path = "backend.main:app" if os.path.exists("backend") else "main:app"
-<<<<<<< HEAD
     port = int(os.getenv("PORT", 8000))
     uvicorn.run(module_path, host="0.0.0.0", port=port, reload=False)
-=======
-    import os; port = int(os.environ.get("PORT", 8080)); uvicorn.run(module_path, host="0.0.0.0", port=port, reload=False)
->>>>>>> cf266e2db625e2e5477ec6612abc101264cfa082
