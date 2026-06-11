@@ -12,3 +12,7 @@ To run GreenRoute, you will need:
  
 - Node.js and npm for the frontend
 - Python 3.10+ and pip for the backend
+
+### Installing
+ 
+Follow these steps to get your development environment running:
