@@ -108,3 +108,9 @@ Before running the application, you will need a Google Gemini API key.
 ## Contributing
  
 If you're interested in contributing to GreenRoute, please read through the project files and reach out to the team to see how you can help.
+
+### Main Authors
+ 
+- **Sahasra Kalakonda** - _Initial work_ - [sahasrakalakonda16@gmail.com](mailto:sahasrakalakonda16@gmail.com)
+- **Tanvi Sathish Arvind** - _Initial work_ - [tanvi.s.arvind@gmail.com](mailto:tanvi.s.arvind@gmail.com)
+- **Strider Zimmerman** - _Initial work_ - [Strider.zimmerman@icloud.com](mailto:Strider.zimmerman@icloud.com)
