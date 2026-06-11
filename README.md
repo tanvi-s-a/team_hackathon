@@ -96,15 +96,15 @@ Before running the application, you will need a Google Gemini API key.
 
 ## Built With
  
-- ** Frontend: React 19, Vite, Lucide React
-- ** Backend: FastAPI, Python, Uvicorn
-- ** APIs & Data: Google Places API, Google Geocoding API, AviationStack
-- ** AI: Google AI Studio & Google Gemini 2.5 Flash
-- ** Database: Google Cloud SQL (production)
-- ** Infrastructure & Hosting: Google Cloud Run, Google Compute Engine, Firebase Hosting
-- ** DevOps & Deployment: Google Cloud Build, Google Artifact Registry
-- ** Maps & Travel: Google Maps API, Google Travel API
-- ** Observability: Arize Phoenix, OpenTelemetry, OpenInference
+- **Frontend: React 19, Vite, Lucide React
+- **Backend: FastAPI, Python, Uvicorn
+- **APIs & Data: Google Places API, Google Geocoding API, AviationStack
+- **AI: Google AI Studio & Google Gemini 2.5 Flash
+- **Database: Google Cloud SQL (production)
+- **Infrastructure & Hosting: Google Cloud Run, Google Compute Engine, Firebase Hosting
+- **DevOps & Deployment: Google Cloud Build, Google Artifact Registry
+- **Maps & Travel: Google Maps API, Google Travel API
+- **Observability: Arize Phoenix, OpenTelemetry, OpenInference
 
 ## Contributing
  
