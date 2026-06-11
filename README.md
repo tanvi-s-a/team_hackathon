@@ -93,3 +93,14 @@ Before running the application, you will need a Google Gemini API key.
   ```plaintext
   PHOENIX_COLLECTOR_ENDPOINT=your_phoenix_collector_url
   ```
+
+## Built With
+ 
+- **Frontend**: React 19, Vite, Lucide React
+- **Backend**: FastAPI, Python, Uvicorn
+- **APIs**: Google Places API, Google Geocoding API, AviationStack
+- **AI**: Google AI Studio & Google Gemini 2.5 Flash
+- **Database**: Google Cloud SQL (production)
+- **Hosting & Infrastructure**: Google Cloud Run, Firebase Hosting
+- **Maps & Travel**: Google Maps API, Google Travel API
+- **Observability**: Arize Phoenix, OpenTelemetry, OpenInference
