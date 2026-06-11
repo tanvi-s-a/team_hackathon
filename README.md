@@ -111,9 +111,9 @@ If you're interested in contributing to GreenRoute, please read through the proj
 
 ### Main Authors
  
-- **Sahasra Kalakonda** - _Initial work_ - [sahasrakalakonda16@gmail.com](mailto:sahasrakalakonda16@gmail.com)
-- **Tanvi Sathish Arvind** - _Initial work_ - [tanvi.s.arvind@gmail.com](mailto:tanvi.s.arvind@gmail.com)
-- **Strider Zimmerman** - _Initial work_ - [Strider.zimmerman@icloud.com](mailto:Strider.zimmerman@icloud.com)
+- **Sahasra Kalakonda** - [sahasrakalakonda16@gmail.com](mailto:sahasrakalakonda16@gmail.com)
+- **Tanvi Sathish Arvind** - [tanvi.s.arvind@gmail.com](mailto:tanvi.s.arvind@gmail.com)
+- **Strider Zimmerman** - [Strider.zimmerman@icloud.com](mailto:Strider.zimmerman@icloud.com)
 
 ## Acknowledgments
  
