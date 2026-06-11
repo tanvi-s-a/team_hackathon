@@ -58,3 +58,13 @@ Follow these steps to get your development environment running:
   python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
   ```
  
+#### Run Both at Once
+ 
+From the project root, use the provided launch scripts:
+ 
+```bash
+./run.sh    # macOS / Linux
+.\run.ps1   # Windows PowerShell
+```
+ 
+This starts the FastAPI backend (port 8000) and the Vite frontend simultaneously and also launches the Arize Phoenix observability console at http://localhost:6006.
