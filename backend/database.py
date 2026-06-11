@@ -57,8 +57,13 @@ def get_db_connection():
                 )
             return conn
         except Exception as e:
-            print(f"--> Warning: PostgreSQL connection failed: {e}. Falling back to SQLite.")
-            # Temporarily disable PostgreSQL for the current operation/session
+            is_cloud = os.getenv("K_SERVICE") is not None or os.getenv("ENVIRONMENT") == "production"
+            print(f"--> ERROR: PostgreSQL connection failed: {e}.")
+            if is_cloud:
+                print("--> CRITICAL: Running in a cloud environment (detected K_SERVICE or production). Falling back to SQLite is disabled to prevent silent data loss.")
+                raise e
+            else:
+                print("--> Warning: Falling back to local SQLite for development.")
     
     # Fallback SQLite Connection
     DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "carbon.db")

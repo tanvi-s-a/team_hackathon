@@ -62,8 +62,8 @@ function App() {
   
   // Arize Phoenix Observability State
   const [arizeTraces, setArizeTraces] = useState([]);
-  const [showArizePanel, setShowArizePanel] = useState(true);
-  const [phoenixUrl] = useState('http://localhost:6006');
+  const [showArizePanel, setShowArizePanel] = useState(false); // Disabled in production
+  const [phoenixUrl] = useState(null); // Not available in cloud deployment
 
   useEffect(() => {
     fetchData();

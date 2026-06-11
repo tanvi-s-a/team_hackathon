@@ -1,0 +1,16 @@
+.env
+.venv
+venv
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+carbon.db
+.git
+.gitignore
+debug_gemini_raw.json
+tests/
+test_*.py
+*diff.txt
+*diff_utf8.txt
