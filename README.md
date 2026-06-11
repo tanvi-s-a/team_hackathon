@@ -35,7 +35,24 @@ Follow these steps to get your development environment running:
   ```bash
   pip install -r requirements.txt
   ```
+
+ #### Frontend
  
+1. Navigate to the frontend directory:
+  ```bash
+  cd frontend
+  ```
+ 
+2. Install dependencies:
+  ```bash
+  npm install
+  ```
+ 
+3. Start the Vite dev server:
+  ```bash
+  npm run dev
+  ```
+
 4. Start the FastAPI server:
   ```bash
   python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
