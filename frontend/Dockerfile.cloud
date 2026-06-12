@@ -1,18 +1,22 @@
 # Build stage
 FROM node:20-alpine AS builder
 
+# Set build-time argument for API URL
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci
+RUN npm install
 
 # Copy source code
 COPY . .
 
-# Build React app with Vite
+# Build React app with Vite (will inject VITE_API_URL)
 RUN npm run build
 
 # Production stage - serve built files
@@ -26,8 +30,8 @@ RUN npm install -g serve
 # Copy built files from builder
 COPY --from=builder /app/dist ./dist
 
-# Expose port
-EXPOSE 3000
+# Expose port (Cloud Run defaults to PORT environment variable, usually 8080)
+EXPOSE 8080
 
-# Start server
-CMD ["serve", "-s", "dist", "-l", "3000"]
+# Start server, dynamically binding to the PORT env var provided by Cloud Run
+CMD ["sh", "-c", "serve -s dist -l ${PORT:-8080}"]

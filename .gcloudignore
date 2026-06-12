@@ -1,0 +1,6 @@
+.git
+.hg
+.svn
+node_modules/
+backend/venv/
+backend/carbon.db
